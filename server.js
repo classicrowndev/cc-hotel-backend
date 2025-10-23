@@ -33,6 +33,19 @@ app.use(express.urlencoded({extended: true}))
 //user routes
 app.use('/guest_auth', require('./uroutes/auth'))
 app.use('/guest_profile', require('./routes/profile'))
+app.use('/guest_room', require('./routes/room'))
+app.use('/guest_booking', require('./routes/booking'))
+app.use('/guest_dish', require('./routes/dish'))
+app.use('/guest_order', require('./routes/order'))
+app.use('/guest_service', require('./routes/service'))
+app.use('/guest_event', require('./routes/event'))
+app.use('/guest_hall', require('./routes/hall'))
+app.use('/guest_faq', require('./routes/faq'))
+app.use('/guest_testimonial', require('./routes/testimonial'))
+app.use('/guest_contact', require('./routes/contact'))
+app.use('/guest_policy', require('./routes/policy'))
+
+
 
 //staff routes
 app.use('/staff_auth', require('./routes/auth'))

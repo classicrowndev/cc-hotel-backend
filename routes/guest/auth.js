@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const Guest = require('../models/guest')
 
-const { sendOTP, sendPasswordReset } = require("../../utils/nodemailer")
+const { sendOTP, sendPasswordReset } = require("../utils/nodemailer")
 
 
 
