@@ -57,42 +57,48 @@ router.post('/register', async(req, res) =>{
 
 //endpoint to Login
 router.post('/login', async(req, res) => {
-    const {email, password} = req.body
-    if (!email || !password)
+    const {email, phone_no, password} = req.body
+    if ((!email && !phone_no) || !password)
         return res.status(400).send({status: 'error', msg: 'All fields must be filled'})
 
     try {
         // get staff from database
-        const staff = await Staff.findOne({email}).lean()
-        if(!staff)
-            return res.status(200).send({status: 'ok', msg:'No staff with this email found'})
+        const staff = await Staff.findOne({$or: [{ email: email || null }, { phone_no: phone_no || null }] }).lean()
+        if(!staff) {
+            return res.status(200).send({status: 'ok', msg:'No staff account found with the provided email or phone number'})
+        }
 
         // check if staff has been blocked
-        if (staff.is_blocked === true)
+        if (staff.is_blocked === true){
             return res.status(400).send({ status: "error", msg: "account blocked" })
-        
+        }
+
         // check if staff has been banned
-        if (staff.is_banned === true)
+        if (staff.is_banned === true) {
             return res.status(400).send({ status: "error", msg: "account banned" })
+        }
 
         // check if staff has been deleted
-        if (staff.is_deleted === true)
+        if (staff.is_deleted === true) {
             return res.status(400).send({ status: "error", msg: "account deleted" })
+        }
 
         //compare password
         const correct_password = await bcrypt.compare(password, staff.password)
-        if(!correct_password)
+        if(!correct_password) {
             return res.status(200).send({status: 'ok', msg:'Incorrect Password'})
+        }
 
         // create token
         const token = jwt.sign({
             _id: staff._id,
             email: staff.email,
+            phone_no: staff.phone_no,
             role: "staff"
         }, process.env.JWT_SECRET)
 
         //update staff document to online
-        staff = await Staff.findOneAndUpdate({email}, {is_online: true}, {new: true}).lean()
+        staff = await Staff.findOneAndUpdate({_id: staff._id}, {is_online: true}, {new: true}).lean()
 
         //send response
         res.status(200).send({status: 'ok', msg: 'Login Successful', staff, token})
@@ -173,9 +179,9 @@ router.post('/change_password', async(req, res)=>{
 
 // endpoint for staff to reset their password
 router.post('/forgot_password', async (req, res) => {
-    const {email} = req.body;
+    const {email, phone_no} = req.body;
   
-    if(!email){
+    if(!email && !phone_no){
         return res.status(400).send({status: 'error', msg: 'All fields must be entered'});
     }
   
@@ -187,25 +193,25 @@ router.post('/forgot_password', async (req, res) => {
         // }
     
         // check if the staff exists
-        const found = await Staff.findOne({email}, {fullname: 1, email: 1}).lean();
+        const staff = await Staff.findOne({$or: [{ email: email || null }, { phone_no: phone_no || null }] }).lean()
     
-        if(!found){
-            return res.status(400).send({status: 'error', msg: 'There is no staff account with this email'});
+        if(!staff){
+            return res.status(400).send({status: 'error', msg: 'No staff account found with the provided email or phone'});
         }
     
         // create resetPasswordCode
         /**
          * Get the current timestamp and use to verify whether the
-         * user can still use this link to reset their password
+         * staff can still use this link to reset their password
         */
     
         const timestamp = Date.now();
-        const resetPasswordCode = jwt.sign({ email, timestamp }, process.env.JWT_SECRET, { expiresIn: '10m' });
+        const resetPasswordCode = jwt.sign({ id: staff._id }, process.env.JWT_SECRET, { expiresIn: '10m' });
   
         //send email to user to reset password
         // send email to user to reset password
         try {
-            await sendPasswordReset(email, found.fullname, resetPasswordCode);
+            await sendPasswordReset(staff.email || staff.phone_no, staff.fullname, resetPasswordCode);
             return res.status(200).json({ status: 'ok', msg: 'Password reset email sent, please check your email' });
         } catch (error) {
             console.error(error);
@@ -336,15 +342,15 @@ router.post('/forgot_password', async (req, res) => {
           return res.status(401).send(`</div>
           <h1>Password Reset</h1>
           <p>Token expired</p>
-          </div>`);
+          </div>`)
         } 
-      console.log(e);
+      console.log(e)
       return res.status(200).send(`</div>
       <h1>Password Reset</h1>
       <p>An error occured!!! ${e.message}</p>
-      </div>`);
+      </div>`)
     }
-  });
+  })
 
 
 // endpoint to reset password
@@ -359,13 +365,13 @@ router.post("/reset_password", async (req, res) => {
   
     try {
       const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET)
-      const password = await bcrypt.hash(new_password, 10)
+      const hashedPassword = await bcrypt.hash(new_password, 10)
   
       // update the phone_no field
       await Staff.updateOne(
-        { email: data.email },
+        { _id: data._id },
         {
-          $set: { password },
+          $set: { password: hashedPassword } ,
         }
       );
   

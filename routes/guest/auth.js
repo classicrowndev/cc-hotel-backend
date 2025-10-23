@@ -10,23 +10,18 @@ const { sendOTP, sendPasswordReset } = require("../utils/nodemailer")
 
 
 //endpoint to create account
-router.post('/create', async(req, res) =>{
-    const {fullname, email, phone_no, password, confirm_password, gender} = req.body
+router.post('/sign_up', async(req, res) =>{
+    const {fullname, email, phone_no, password} = req.body
 
-    if(!fullname || !email || !phone_no || !password || !confirm_password)
+    if(!fullname || (!email && !phone_no) || !password)
         return res.status(400).send({status: 'error', msg: 'All fields must be filled'})
 
     // Start try block
     try {
-        //Confirm passwords match
-        if (password !== confirm_password) {
-            return res.status(400).send({status: 'error', msg: 'Password mismatch'})
-        }
-        
         //Check if guest already exists
-        const check = await Guest.findOne({email: email})
+        const check = await Guest.findOne({$or: [{ email }, { phone_no }] })
         if(check) {
-            return res.status(200).send({status: 'ok', msg: 'An account with this email already exists'})
+            return res.status(200).send({status: 'ok', msg: 'An account with this email or phone number already exists'})
         }
 
         //Hash password
@@ -35,31 +30,27 @@ router.post('/create', async(req, res) =>{
         //Create new guest
         const guest = new Guest()
         guest.fullname = fullname
-        guest.email = email
-        guest.phone_no = phone_no
+        guest.email = email || null
+        guest.phone_no = phone_no || null
         guest.password = hashedpassword
         guest.is_verified = false
         guest.profile_img_url = ""
         guest.profile_img_id = ""
 
-
-        //Only assigned gender if provided
-        if (gender) {
-            guest.gender = gender
-        }
-
         await guest.save()
 
-        // Generate verification token (expires in 30 minutes)
+        // Generate verification token (optional if you want email/phone verification (expires in 30 minutes))
         const verificationToken = jwt.sign(
-            { guestId: guest._id, email: guest.email },
+            { guestId: guest._id, email: guest.email, phone_no: guest.phone_no },
             process.env.JWT_SECRET,
             { expiresIn: "30m" }
         )
         
-        // Send verification email
-        await sendOTP(email, fullname, verificationToken)
-        
+        // Optionallly, send OTP/email verification only if email is provided
+        if (email) {
+            await sendOTP(email, fullname, verificationToken)
+        }
+
         return res.status(200).send({ status: "ok",
             msg: "Account created! Check your email to verify your account.", _id: guest._id
         })
@@ -104,32 +95,37 @@ router.get("/verify/:token", async (req, res) => {
 
 
 //endpoint to Login
-router.post('/login', async(req, res) => {
-    const {email, password} = req.body
-    if (!email || !password)
+router.post('/sign_in', async(req, res) => {
+    const {email, phone_no, password} = req.body
+    if ((!email && !phone_no) || !password)
         return res.status(400).send({status: 'error', msg: 'All fields must be filled'})
 
     try {
         // get guest from database
-        let guest = await Guest.findOne({email}).lean()
+        let guest = await Guest.findOne({$or: [{ email: email || null }, { phone_no: phone_no || null }] }).lean()
         if(!guest)
-            return res.status(400).send({status: 'error', msg:'No guest with the email found'})
+            return res.status(400).send({
+        status: 'error', msg:'No guest account found with the provided email or phone number'})
 
         // check if guest's account has been verified
-        if (guest.is_verified)
-            return res.status(400).send({ status: "error", msg: "Please verify your email first." })
+        if (guest.is_verified) {
+            return res.status(400).send({ status: "error", msg: "Please verify your account first." })
+        }
 
-        // check if guest has been blocked
-        if (guest.is_blocked === true)
+        // check if blocked
+        if (guest.is_blocked === true) {
             return res.status(400).send({ status: "error", msg: "account blocked" })
+        }
         
-        // check if guest has been banned
-        if (guest.is_banned === true)
+        // check if banned
+        if (guest.is_banned === true) {
             return res.status(400).send({ status: "error", msg: "account banned" })
+        }
 
-        // check if guest has been deleted
-        if (guest.is_deleted === true)
+        // check if deleted
+        if (guest.is_deleted === true) {
             return res.status(400).send({ status: "error", msg: "account deleted" })
+        }
 
         //compare password
         const correct_password = await bcrypt.compare(password, guest.password)
@@ -139,11 +135,12 @@ router.post('/login', async(req, res) => {
         // create token
         const token = jwt.sign({
             _id: guest._id,
-            email: guest.email
+            email: guest.email,
+            phone_no: guest.phone_no
         }, process.env.JWT_SECRET, {expiresIn: '1h'})
 
         //update guest document to online
-        guest = await Guest.findOneAndUpdate({email}, {is_online: true}, {new: true}).lean()
+        guest = await Guest.findOneAndUpdate({_id: guest._id}, {is_online: true}, {new: true}).lean()
 
         //send response
         res.status(200).send({status: 'ok', msg: 'Login Successful', guest, token})
@@ -225,64 +222,53 @@ router.post('/change_password', async(req, res)=>{
 })
 
 
-// endpoint for a member to reset their password
+// endpoint for a guest to reset their password
 router.post('/forgot_password', async (req, res) => {
-    const {email} = req.body;
-  
-    if(!email){
-        return res.status(400).send({status: 'error', msg: 'All fields must be entered'});
+    const { email, phone_no } = req.body
+
+    if (!email && !phone_no) {
+        return res.status(400).send({ status: 'error', msg: 'Email or phone number is required' });
     }
-  
+
     try {
-        // Add Regex for email check
-        // const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        // if(!regex.test(String(email).toLocaleLowerCase())){
-        //     return res.status(400).json({status: 'error', msg: 'Please enter a valid email'});
-        // }
-    
-        // check if the guest exists
-        const found = await Guest.findOne({email}, {fullname: 1, email: 1}).lean();
-    
-        if(!found){
-            return res.status(400).send({status: 'error', msg: 'There is no guest account with this email'});
+        // Find guest by email or phone
+        const guest = await Guest.findOne({
+            $or: [{ email: email || null }, { phone_no: phone_no || null }]}).lean()
+
+        if (!guest) {
+            return res.status(400).send({ status: 'error', msg: 'No guest account found with the provided email or phone' });
         }
-    
-        // create resetPasswordCode
-        /**
-         * Get the current timestamp and use to verify whether the
-         * user can still use this link to reset their password
-        */
-    
-        const timestamp = Date.now();
-        const resetPasswordCode = jwt.sign({ email, timestamp }, process.env.JWT_SECRET, { expiresIn: '10m' });
-  
-        //send email to user to reset password
-        // send email to user to reset password
-        try {
-            await sendPasswordReset(email, found.fullname, resetPasswordCode);
-            return res.status(200).json({ status: 'ok', msg: 'Password reset email sent, please check your email' });
-        } catch (error) {
-            console.error(error);
-            return res.status(500).json({ status: 'error', msg: 'Email not sent', error: error.name });
-        }
-  
-    } catch(e) {
-        console.error(e);
-        return res.status(500).send({status: "error", msg: "some error occured", error: e.name});
-    } 
-  })
-  
-  // endpoint to reset password webpage
-  router.get("/reset_password/:resetPasswordCode", async (req, res) => {
-    const resetPasswordCode = req.params.resetPasswordCode;
+
+        // Create reset token (expires in 10 min)
+        const resetToken = jwt.sign(
+            { _id: guest._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '10m' }
+        );
+
+        // Send email (or SMS later if implemented)
+        await sendPasswordReset(guest.email || guest.phone_no, guest.fullname, resetToken)
+
+        return res.status(200).send({ status: 'ok', msg: 'Password reset link sent. Please check your email or phone.' })
+
+    } catch (error) {
+        console.error(error)
+        return res.status(500).send({ status: 'error', msg: 'Error sending password reset link', error: error.message })
+    }
+})
+
+
+// endpoint to reset password webpage
+router.get("/reset_password/:resetPasswordCode", async (req, res) => {
+const resetPasswordCode = req.params.resetPasswordCode
     try {
-      const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET);
+      const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET)
   
       const sendTime = data.timestamp;
       // check if more than 5 minutes has elapsed
-      const timestamp = Date.now();
+      const timestamp = Date.now()
       if (timestamp > sendTime) {
-        console.log("handle the expiration of the request code");
+        console.log("handle the expiration of the request code")
       }
   
       return res.send(`<!DOCTYPE html>
@@ -402,23 +388,23 @@ router.post('/forgot_password', async (req, res) => {
   
   // endpoint to reset password
   router.post("/reset_password", async (req, res) => {
-    const { new_password, resetPasswordCode } = req.body;
+    const { new_password, confirm_password, resetPasswordCode } = req.body
   
-    if (!new_password || !resetPasswordCode) {
+    if (!new_password || !confirm_password || !resetPasswordCode) {
       return res
         .status(400)
-        .json({ status: "error", msg: "All fields must be entered" });
+        .json({ status: "error", msg: "All fields must be entered" })
     }
   
     try {
-      const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET);
-      const password = await bcrypt.hash(new_password, 10)
+      const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET)
+      const hashedPassword = await bcrypt.hash(new_password, 10)
   
       // update the phone_no field
       await Guest.updateOne(
-        { email: data.email },
+        { _id: data._id },
         {
-          $set: { password },
+          $set: { password: hashedPassword } ,
         }
       );
   
