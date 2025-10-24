@@ -9,7 +9,11 @@ const roomSchema = new mongoose.Schema({
     },
     price: {type: Number, required: true},
     capacity: {type: Number, required: true},
-    availability: {type: Boolean, default: true},
+    availability: {
+        type: String,
+        enum: ["available", "occupied", "reserved", "maintenance"],
+        default: "available"
+    },
     amenities: {
         type: String, 
         enum: ["5G Wi-Fi", "Flat-Screen TV", "Water Dispenser",

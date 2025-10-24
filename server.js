@@ -50,6 +50,15 @@ app.use('/guest_policy', require('./routes/policy'))
 //staff routes
 app.use('/staff_auth', require('./routes/auth'))
 app.use('/staff_profile', require('./routes/profile'))
+app.use('/staff_dashboard', require('./routes/dashboard'))
+app.use('/staff_room', require('./routes/room'))
+app.use('/staff_service', require('./routes/service'))
+app.use('/staff_serviceRequest', require('./routes/serviceRequest'))
+app.use('/staff_booking', require('./routes/booking'))
+app.use('/staff_dish', require('./routes/dish'))
+app.use('/staff_order', require('./routes/order'))
+app.use('/staff_event', require('./routes/event'))
+app.use('/staff_hall', require('./routes/hall'))
 
 const port = process.env.PORT
 app.listen(port , ()=>{

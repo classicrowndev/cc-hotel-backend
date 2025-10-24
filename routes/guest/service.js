@@ -10,7 +10,9 @@ const ServiceRequest = require('../models/serviceRequest')
 router.post('/all', async (req, res) => {
     const { token } = req.body
 
-    if (!token) return res.status(400).send({ status: 'error', msg: 'Token must be provided' })
+    if (!token) {
+        return res.status(400).send({ status: 'error', msg: 'Token must be provided' })
+    }
 
     try {
         // verify guest's token
@@ -34,8 +36,9 @@ router.post('/all', async (req, res) => {
 // View details of a single service
 router.post('/view', async (req, res) => {
     const { token, id } = req.body
-    if (!token || !id)
+    if (!token || !id) {
         return res.status(400).send({ status: 'error', msg: 'Token and service ID are required' })
+    }
 
     try {
         //verify guest's token
@@ -57,8 +60,9 @@ router.post('/view', async (req, res) => {
 // Filter services by type
 router.post('/filter', async (req, res) => {
     const { token, service_type } = req.body
-    if (!token || !service_type)
+    if (!token || !service_type) {
         return res.status(400).send({ status: 'error', msg: 'Token and service type are required' })
+    }
 
     try {
         // verify guest's token
@@ -82,8 +86,9 @@ router.post('/filter', async (req, res) => {
 // Search services by name
 router.post('/search', async (req, res) => {
     const { token, keyword } = req.body
-    if (!token || !keyword)
+    if (!token || !keyword) {
         return res.status(400).send({ status: 'error', msg: 'Token and search keyword are required' })
+    }
 
     try {
         // verify guest's token
@@ -112,18 +117,23 @@ router.post('/search', async (req, res) => {
 router.post('/request', async (req, res) => {
     const { token, email, id, room, payment_method, amount } = req.body
 
-    if (!token || !email || !id || !room || !payment_method || !amount)
+    if (!token || !email || !id || !room || !payment_method || !amount) {
         return res.status(400).send({ status: 'error', msg: 'All fields are required' })
-
+    }
+    
     try {
         // verify guest's token
         const guest = jwt.verify(token, process.env.JWT_SECRET)
 
         // Fetch the services requested
         const service = await Service.findById(id)
-        if (!service) return res.status(400).send({ status: 'error', msg: 'Service not found' })
-        if (!service.availability)
+        if (!service) {
+            return res.status(400).send({ status: 'error', msg: 'Service not found' })
+        }
+
+        if (!service.availability) {
             return res.status(400).send({ status: 'error', msg: 'Service is not available currently' })
+        }
 
         const request = new ServiceRequest({
             guest: guest._id,
@@ -143,6 +153,38 @@ router.post('/request', async (req, res) => {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         }
         return res.status(500).send({ status: 'error', msg: 'Error requesting service', error: e.message })
+    }
+})
+
+// view the service request status
+router.post('/request_status', async (req, res) => {
+    const { token, request_id } = req.body
+    if (!token || !request_id) {
+        return res.status(400).send({ status: 'error', msg: 'Token and request ID are required' })
+    }
+
+    try {
+        // verify guest
+        const guest = jwt.verify(token, process.env.JWT_SECRET)
+
+        // find the guest's own request
+        const request = await ServiceRequest.findOne({ _id: request_id, guest: guest._id })
+
+        if (!request) {
+            return res.status(400).send({ status: 'error', msg: 'Service request not found' })
+        }
+
+        return res.status(200).send({ status: 'success', msg: 'Service request status fetched successfully',
+            data: { service_name: request.service_name || undefined, 
+                current_status: request.status, // e.g. Requested, In Progress, Completed, Cancelled
+                requested_on: request.timestamp
+            }
+        })
+    } catch (e) {
+        if (e.name === 'JsonWebTokenError') {
+            return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
+        }
+        return res.status(500).send({ status: 'error', msg: 'Error fetching status', error: e.message })
     }
 })
 

@@ -3,7 +3,7 @@ import mongoose from "mongoose"
 const serviceSchema = new mongoose.Schema({
     service_type: {
         type: String,
-        enum: ["Spa & Relaxation", "Laundry & Dry Cleaning", "Events & Hall",
+        enum: ['Room Booking', "Spa & Relaxation", "Laundry & Dry Cleaning", "Events & Hall",
             "Bar & Grill", "Fitness Center"],
         required: true
     },
