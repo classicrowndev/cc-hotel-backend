@@ -7,6 +7,7 @@ const guestSchema = new Schema({
     phone_no: String,
     password: String,
     gender: String,
+    date_of_birth: String,
     bookings: {type: mongoose.Schema.Types.ObjectId, ref: 'Booking'},
     favoriteServices: {type: mongoose.Schema.Types.ObjectId, ref: 'Service'},
     profile_img_id: String,

@@ -20,7 +20,7 @@ const transporter = nodemailer.createTransport({
 })
 
 
-// Create a new booking (Guest reserves a room)
+// Create a new booking/reservation (Guest reserves a room)
 router.post('/create', async (req, res) => {
     const { token, email, id, amount, duration, no_of_guests, checkInDate, checkOutDate } = req.body
 
@@ -56,7 +56,7 @@ router.post('/create', async (req, res) => {
         await booking.save()
 
         // Mark room as unavailable
-        room.availability = false
+        room.availability = "reserved"
         await room.save()
 
         // Send booking confirmation email
@@ -101,7 +101,7 @@ router.post('/create', async (req, res) => {
 })
 
 
-// View all bookings for the logged-in guest
+// View all bookings/reservations for the logged-in guest
 router.post('/all', async (req, res) => {
     const { token } = req.body
 
@@ -132,7 +132,7 @@ router.post('/all', async (req, res) => {
 })
 
 
-// View a single booking by ID
+// View a single booking/reservation by ID
 router.post('/view', async (req, res) => {
     const { token, id } = req.body
 
@@ -165,7 +165,7 @@ router.post('/view', async (req, res) => {
 })
 
 
-// Cancel a booking
+// Cancel a booking/reservation
 router.post('/cancel', async (req, res) => {
     const { token, id } = req.body
 
@@ -197,7 +197,7 @@ router.post('/cancel', async (req, res) => {
 
         const room = await Room.findById(booking.room)
         if (room) {
-            room.availability = true
+            room.availability = "available"
             await room.save()
         }
 

@@ -4,12 +4,14 @@ const orderSchema = new mongoose.Schema({
     id: {type: mongoose.Schema.Types.ObjectId, auto: true},
     guest: {type: mongoose.Schema.Types.ObjectId, ref: "Guest", required: true},
     email: {type: String, required: true},
-    dishes: {
-        name: String,
-        quantity: Number,
-        price: Number
-    },
-    status: {type: String, enum: ["Order Placed", "Preparing", "Served", "Delivered"],
+    dishes: [
+        {
+            name: String,
+            quantity: Number,
+            price: Number
+        }
+    ],
+    status: {type: String, enum: ["Order Placed", "Preparing", "Served", "Delivered", "Cancelled"],
         default: "Order Placed"
     },
     room: String, 

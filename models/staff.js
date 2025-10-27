@@ -8,11 +8,10 @@ const staffSchema = new mongoose.Schema({
     password: String,
     profile_img_url: String,
     profile_img_id: String,
-    role: {
-        type: String,
-        enum: ["Manager", "Receptionist", "Chef", "Waiter", "Cleaner", "Admin"],
-        default: "Staff"
-    },
+    role: { type: String, enum: ['Owner', 'Admin', 'Staff'], default: 'Staff' },
+    task: { type: String, enum: ['room', 'dish', 'hall', 'order', 'event', 'none'], default: 'none' }, // Staff task assignment
+    gender: String,
+    date_of_birth: String,
     address: String,
     is_online: {type: Boolean, default: true},
     last_logout: {type: Number, default: null},

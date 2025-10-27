@@ -8,7 +8,7 @@ const Room = require('../models/room')
 const Staff = require('../models/staff')
 const Guest = require('../models/guest')
 const ServiceRequest = require('../models/serviceRequest')
-
+const Order = require('../models/order')
 
 // Dashboard Overview + Recent Activities
 router.post('/overview', async (req, res) => {
@@ -21,8 +21,8 @@ router.post('/overview', async (req, res) => {
         // Verify staff token
         const staff = jwt.verify(token, process.env.JWT_SECRET)
 
-        // Restrict dashboard access to Manager, Admin, and Receptionist
-        if (!['Admin', 'Manager', 'Receptionist'].includes(staff.role)) {
+        // Restrict dashboard access to Owner & Admin
+        if (!['Owner', 'Admin'].includes(staff.role)) {
             return res.status(400).send({ status: 'error', msg: 'Access denied: insufficient privileges' })
         }
 
@@ -79,8 +79,8 @@ router.post('/overview', async (req, res) => {
             }
         }
 
-        // REVENUE TRACKING (Only for Admin and Manager)
-        if (['Admin', 'Manager'].includes(staff.role)) {
+        // REVENUE TRACKING (Only for Owner and Admin)
+        if (['Owner', 'Admin'].includes(staff.role)) {
             const allRequests = await ServiceRequest.find()
             const totalRevenue = allRequests.reduce((sum, r) => sum + (r.amount || 0), 0)
             const completedRevenue = allRequests
@@ -99,10 +99,47 @@ router.post('/overview', async (req, res) => {
                 pendingRevenue,
                 cancelledRevenue
             }
+
+            // ✅ ORDER ANALYTICS SECTION
+            const totalOrders = await Order.countDocuments()
+
+            // Aggregate total revenue from orders
+            const totalOrderRevenueAgg = await Order.aggregate([
+                { $group: { _id: null, total: { $sum: "$amount" } } }
+            ])
+            const totalOrderRevenue = totalOrderRevenueAgg[0]?.total || 0
+
+            // Count orders by status
+            const orderStatusCounts = await Order.aggregate([
+                { $group: { _id: "$status", count: { $sum: 1 } } }
+            ])
+
+            // Daily order revenue (for charts)
+            const dailyOrderRevenue = await Order.aggregate([
+                {
+                    $group: {
+                        _id: {
+                            $dateToString: { format: "%Y-%m-%d", date: "$order_date" }
+                        },
+                        total: { $sum: "$amount" }
+                    }
+                },
+                { $sort: { _id: -1 } },
+                { $limit: 7 }
+            ])
+
+            responseData.orders = {
+                totalOrders,
+                totalOrderRevenue,
+                orderStatusCounts,
+                dailyOrderRevenue
+            }
         }
 
         // RETURN DASHBOARD DATA
-        return res.status(200).send({status: 'success', msg: 'Dashboard overview fetched successfully',
+        return res.status(200).send({
+            status: 'success',
+            msg: 'Dashboard overview fetched successfully',
             data: responseData
         })
     } catch (e) {
