@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const jwt = require('jsonwebtoken')
-import Dish from "../models/dish.js"
+const Dish = require("../../models/dish.js");
 
 
 // View all available dishes
@@ -120,4 +120,4 @@ router.post("/search", async (req, res) => {
 })
 
 
-export default router
+module.exports = router

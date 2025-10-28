@@ -3,9 +3,9 @@ const router = express.Router()
 
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
-const Staff = require('../models/staff')
+const Staff = require('../../models/staff')
 
-const { sendPasswordReset } = require("../utils/nodemailer")
+const { sendPasswordReset } = require("nodemailer")
 
 
 

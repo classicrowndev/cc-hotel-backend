@@ -4,11 +4,11 @@ const router = express.Router()
 const jwt = require('jsonwebtoken')
 
 // Import models
-const Room = require('../models/room')
-const Staff = require('../models/staff')
-const Guest = require('../models/guest')
-const ServiceRequest = require('../models/serviceRequest')
-const Order = require('../models/order')
+const Room = require('../../models/room')
+const Staff = require('../../models/staff')
+const Guest = require('../../models/guest')
+const ServiceRequest = require('../../models/serviceRequest')
+const Order = require('../../models/order')
 
 // Dashboard Overview + Recent Activities
 router.post('/overview', async (req, res) => {

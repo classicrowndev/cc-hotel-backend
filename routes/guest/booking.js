@@ -5,9 +5,9 @@ const dotenv = require('dotenv')
 dotenv.config()
 
 const jwt = require('jsonwebtoken')
-const nodemailer = require('../utils/nodemailer')
-const Booking = require('../models/booking')
-const Room = require('../models/room')
+const nodemailer = require("nodemailer");
+const Booking = require('../../models/booking')
+const Room = require('../../models/room')
 
 
 // Configure Nodemailer

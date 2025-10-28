@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+const mongoose = require("mongoose");
 
 const serviceSchema = new mongoose.Schema({
     service_type: {
@@ -15,7 +15,7 @@ const serviceSchema = new mongoose.Schema({
     },
     description: String,
     price: {type: Number, required: true},
-    availability: {type: boolean, default: true},
+    availability: {type: Boolean, default: true},
     status: {type: String, enum: ["Available", "Unavailable", "Under Maintenance"],
         default: "Available"
     },

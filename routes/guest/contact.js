@@ -6,7 +6,7 @@ dotenv.config()
 
 const jwt = require("jsonwebtoken");
 const Contact = require("../../models/contact")
-const nodemailer = require("../utils/nodemailer")
+const nodemailer = require("nodemailer")
 
 
 // Guest sends a message (contact form)

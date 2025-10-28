@@ -2,11 +2,11 @@ const express = require('express')
 const router = express.Router()
 
 const jwt = require('jsonwebtoken')
-const Staff = require('../models/staff')
+const Staff = require('../../models/staff')
 
 /*
-const cloudinary = require('../utils/cloudinary')
-const Uploader = require('../utils/multer')
+const cloudinary = require('../../utils/cloudinary')
+const Uploader = require('../../utils/multer')
 */
 
 

@@ -2,9 +2,9 @@ const express = require('express')
 const router = express.Router()
 
 const jwt = require('jsonwebtoken')
-const nodemailer = require('../utils/nodemailer')
-const Event = require('../models/event')
-const Staff = require('../models/staff')
+const nodemailer = require("nodemailer");
+const Event = require('../../models/event')
+const Staff = require('../../models/staff')
 
 
 // Nodemailer transporter setup

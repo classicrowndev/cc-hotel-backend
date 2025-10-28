@@ -2,7 +2,7 @@ const express = require('express')
 const router = express.Router()
 
 const jwt = require('jsonwebtoken')
-const Guest = require('../models/guest')
+const Guest = require('../../models/guest')
 
 /*
 const cloudinary = require('../utils/cloudinary')

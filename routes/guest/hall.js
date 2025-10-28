@@ -1,8 +1,8 @@
 const express = require('express')
 const router = express.Router()
 const jwt = require('jsonwebtoken')
-const nodemailer = require('../utils/nodemailer')
-const Hall = require('../models/hall')
+const nodemailer = require("nodemailer");
+const Hall = require('../../models/hall')
 
 const dotenv = require('dotenv')
 dotenv.config()

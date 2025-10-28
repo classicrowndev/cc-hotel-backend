@@ -2,8 +2,8 @@ const express = require('express')
 const router = express.Router()
 
 const jwt = require('jsonwebtoken')
-const Service = require('../models/service')
-const ServiceRequest = require('../models/serviceRequest')
+const Service = require('../../models/service')
+const ServiceRequest = require('../../models/serviceRequest')
 
 
 // Fetch all available services

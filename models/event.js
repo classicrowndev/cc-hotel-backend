@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+const mongoose = require("mongoose");
 
 const eventSchema = new mongoose.Schema({
     name: {type: String, required: true},
@@ -6,7 +6,7 @@ const eventSchema = new mongoose.Schema({
     price: {type: Number, required: true},
     date: Date,
     location: String,
-    availablility: {type: boolean, default: true},
+    availablility: {type: Boolean, default: true},
     status: {type: String, enum: ["Booked", "In Progress", "Completed", "Cancelled", "Overdue"],
         default: "Booked"
     },

@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+const mongoose = require("mongoose");
 
 const policySchema = new mongoose.Schema({
     title: {type: String, enum: ["Privacy Policy", "Terms of Service"], required: true},

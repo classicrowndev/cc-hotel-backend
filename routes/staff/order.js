@@ -2,8 +2,8 @@ const express = require('express')
 const router = express.Router()
 
 const jwt = require('jsonwebtoken')
-const Order = require('../models/order')
-const Dish = require('../models/dish')
+const Order = require('../../models/order')
+const Dish = require('../../models/dish')
 
 
 // ==========================================

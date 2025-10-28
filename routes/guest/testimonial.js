@@ -2,7 +2,7 @@ const express = require('express')
 const router = express.Router()
 const jwt = require('jsonwebtoken')
 
-import Testimonial from "../models/testimonial.js"
+const Testimonial = require("../../models/testimonial.js");
 
 
 // Create a new testimonial
@@ -85,4 +85,4 @@ router.post('/mine', async (req, res) => {
     }
 })
 
-export default router
+module.exports = router

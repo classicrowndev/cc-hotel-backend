@@ -2,8 +2,8 @@ const express = require('express')
 const router = express.Router()
 
 const jwt = require('jsonwebtoken')
-const ServiceRequest = require("../models/serviceRequest")
-const Service = require("../models/service")
+const ServiceRequest = require("../../models/serviceRequest")
+const Service = require("../../models/service")
 
 
 // Fetch all service requests
@@ -133,4 +133,4 @@ router.post("/delete", async (req, res) => {
     }
 })
 
-export default router
+module.exports = router

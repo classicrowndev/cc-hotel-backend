@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 
-import FAQ from "../../models/faq.js"
+const FAQ = require("../../models/faq.js");
 
 
 // View all FAQs
@@ -45,4 +45,4 @@ router.post("/view", async (req, res) => {
     }
 })
 
-export default router
+module.exports = router

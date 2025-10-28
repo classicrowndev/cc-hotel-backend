@@ -6,7 +6,7 @@ dotenv.config()
 
 const jwt = require("jsonwebtoken")
 const Contact = require("../../models/contact") // Messages (staff & guest)
-const nodemailer = require("../utils/nodemailer")
+const nodemailer = require("nodemailer")
 
 // Staff sends a message
 router.post("/send", async (req, res) => {

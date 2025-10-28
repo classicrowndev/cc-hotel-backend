@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+const mongoose = require("mongoose");
 
 const serviceRequestSchema = new mongoose.Schema({
     id: { type: mongoose.Schema.Types.ObjectId, auto: true },

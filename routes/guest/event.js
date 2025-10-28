@@ -5,8 +5,8 @@ const dotenv = require('dotenv')
 dotenv.config()
 
 const jwt = require('jsonwebtoken')
-const nodemailer = require('../utils/nodemailer')
-const Event = require('../models/event')
+const nodemailer = require("nodemailer");
+const Event = require('../../models/event')
 
 
 // Nodemailer transporter

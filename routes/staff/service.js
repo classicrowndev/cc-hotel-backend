@@ -2,7 +2,7 @@ const express = require('express')
 const router = express.Router()
 
 const jwt = require("jsonwebtoken")
-const Service = require("../models/service")
+const Service = require("../../models/service")
 
 // Add a new service (Only Manager or Admin)
 router.post("/add", async (req, res) => {
@@ -158,4 +158,4 @@ router.post("/delete", async (req, res) => {
     }
 })
 
-export default router
+module.exports = router
