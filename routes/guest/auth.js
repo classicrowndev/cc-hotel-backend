@@ -33,12 +33,13 @@ router.post('/sign_up', async(req, res) =>{
         guest.email = email || null
         guest.phone_no = phone_no || null
         guest.password = hashedpassword
-        guest.is_verified = false
+        //guest.is_verified = false
         guest.profile_img_url = ""
         guest.profile_img_id = ""
 
         await guest.save()
 
+        /*
         // Generate verification token (optional if you want email/phone verification (expires in 30 minutes))
         const verificationToken = jwt.sign(
             { guestId: guest._id, email: guest.email, phone_no: guest.phone_no },
@@ -50,9 +51,9 @@ router.post('/sign_up', async(req, res) =>{
         if (email) {
             await sendOTP(email, fullname, verificationToken)
         }
-
-        return res.status(200).send({ status: "ok",
-            msg: "Account created! Check your email to verify your account.", _id: guest._id
+*/
+        return res.status(200).send({ status: "ok", msg: "Account created successfully!"
+            /*msg: "Account created! Check your email to verify your account."*/, _id: guest._id
         })
         
     } catch (error) {
@@ -64,6 +65,7 @@ router.post('/sign_up', async(req, res) =>{
 })
 
 // endpoint to verify account
+/*
 router.get("/verify/:token", async (req, res) => {
     const { token } = req.params
 
@@ -92,7 +94,7 @@ router.get("/verify/:token", async (req, res) => {
         return res.status(500).send({ status: "error", msg: "Verification failed" })
     }
 })
-
+*/
 
 //endpoint to Login
 router.post('/sign_in', async(req, res) => {
@@ -108,9 +110,10 @@ router.post('/sign_in', async(req, res) => {
         status: 'error', msg:'No guest account found with the provided email or phone number'})
 
         // check if guest's account has been verified
+        /*
         if (guest.is_verified) {
             return res.status(400).send({ status: "error", msg: "Please verify your account first." })
-        }
+        }*/
 
         // check if blocked
         if (guest.is_blocked === true) {
