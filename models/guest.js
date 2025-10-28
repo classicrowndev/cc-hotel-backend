@@ -21,7 +21,7 @@ const guestSchema = new Schema({
     status: {type: String, enum: ["Active", "Suspened", "Deactivated"], default: "Active"},//Status can be 'Active', 'Suspended' or 'Deleted'
     createdAt: {type: Date, default: Date.now},
     updatedAt: {type: Date, default: Date.now},
-    is_verified: { type: Boolean, default: false },
+    //is_verified: { type: Boolean, default: false },
     is_blocked: { type: Boolean, default: false },
     block_reason: {type: String, default: ''},
     is_banned: { type: Boolean, default: false },

@@ -16,15 +16,15 @@ app.use(cors({
 */
 
 // connect database
-mongoose.connect(process.env.MONGO_URI)
-const con = mongoose.connection
-con.on('open', error =>{
-    if(error) {
-        console.log(`Error connecting to database ${error}`)
-    }else{
-    console.log("Connected to Database")
-    }
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
 })
+
+const db = mongoose.connection
+
+db.on('error', (err) => console.error('MongoDB connection error:', err))
+db.once('open', () => console.log('Connected to MongoDB'))
 
 app.use(express.json())
 app.use(express.urlencoded({extended: true}))
