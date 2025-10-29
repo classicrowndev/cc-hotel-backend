@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const Guest = require('../../models/guest')
 
-const { sendOTP, sendPasswordReset } = require("nodemailer")
+const { sendOTP, sendPasswordReset } = require("../../utils/nodemailer")
 
 
 
@@ -162,10 +162,17 @@ router.post('/logout', async(req, res) => {
 
     try {
         //verify token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
+        const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
-        await Guest.updateOne({_id: guest._id}, {is_online: false})
-        return res.status(200).send({status: 'ok', msg: 'Logout Successful'})
+        // check if user still exists
+        const guest = await Guest.findById(decoded._id)
+        if (!guest)
+        return res.status(404).send({ status: 'error', msg: 'Account no longer exists' })
+
+        // update is_online to false
+        await Guest.updateOne({ _id: decoded._id }, { is_online: false })
+        return res.status(200).send({ status: 'ok', msg: 'Logout Successful' })
+
     } catch (error) {
         console.log(error)
         if(error == "JsonWebTokenError")
@@ -350,18 +357,19 @@ const resetPasswordCode = req.params.resetPasswordCode
           </head>
           <body>    
                   <h2 style="display: flex; align-items: center; justify-content: center; margin-bottom: 0;">Recover Account</h2>
-                  <h6 style="display: flex; align-items: center; justify-content: center; font-weight: 200;">Enter the new phone number
+                  <h6 style="display: flex; align-items: center; justify-content: center; font-weight: 200;">Enter the new password
                       you want to use in recovering your account</h6>    
           
-              <form action="http://localhost:3000/user_profile/reset_password" method="post">
+              <form action="http://localhost:1000/guest_auth/reset_password" method="post">
                   <div class="imgcontainer">
                   </div>
                   <div class="container">
-                      <input type="text" placeholder="Enter new password" name="new_password" required style="border-radius: 5px;" maxlength="11">
-                      <input type='text' placeholder="nil" name='resetPasswordCode' value=${resetPasswordCode} style="visibility: hidden"><br>
-                      <button type="submit" style="border-radius: 5px; background-color: #1aa803;">Submit</button>            
-                  </div>        
-              </form>
+                    <input type="password" placeholder="Enter new password" name="new_password" required style="border-radius: 5px" minlength="11">
+                    <input type="password" placeholder="Confirm new password" name="confirm_password" required style="border-radius: 5px" minlength="11">
+                    <input type="hidden" name="resetPasswordCode" value="${resetPasswordCode}"><br>
+                    <button type="submit" style="border-radius: 5px; background-color: #1aa803">Submit</button>
+                  </div>
+                </form>
           </body>
   
       </html>`)
@@ -398,10 +406,27 @@ const resetPasswordCode = req.params.resetPasswordCode
         .status(400)
         .json({ status: "error", msg: "All fields must be entered" })
     }
+
+    // Check password equality
+    if (new_password !== confirm_password) {
+    return res
+        .status(400)
+        .json({ status: "error", msg: "Passwords do not match" });
+    }
+
+    // (Optional) check minimum length / complexity on the server side too
+    if (new_password.length < 11) {
+    return res
+        .status(400)
+        .json({ status: "error", msg: "Password must be at least 11 characters" });
+    }
   
     try {
       const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET)
       const hashedPassword = await bcrypt.hash(new_password, 10)
+
+      console.log("Resetting password for user ID:", data._id)
+
   
       // update the phone_no field
       await Guest.updateOne(

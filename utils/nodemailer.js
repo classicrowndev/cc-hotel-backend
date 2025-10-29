@@ -26,7 +26,7 @@ const sendPasswordReset = async (email, fullname, resetPasswordCode) => {
             <p style="line-height: 1.2;">Hi ${fullname},</p>
             <p style="line-height: 1.2;">We've received a request to reset your password.</p>
             <p style="line-height: 1.5;">If you didn't make the request, just ignore this message. Otherwise, you can reset your password.</p>        
-            <a href=http://localhost:3000/user_profile/reset_password/${resetPasswordCode}>
+            <a href=http://localhost:1000/guest_auth/reset_password/${resetPasswordCode}>
                 <button style="font-weight: 500;font-size: 14px;cursor: pointer; background-color: rgba(238, 119, 36, 1); border: none; border-radius: 4px; padding: 12px 18px 12px 18px; color: white;">
                     Reset your password
                 </button>
