@@ -7,6 +7,8 @@ const Guest = require('../../models/guest')
 
 const { sendOTP, sendPasswordReset } = require("../../utils/nodemailer")
 
+// Import middleware that verifies guest token
+const verifyToken = require('../../middleware/verifyToken')
 
 
 //endpoint to create account
@@ -155,22 +157,13 @@ router.post('/sign_in', async(req, res) => {
 })
 
 //endpoint to Logout
-router.post('/logout', async(req, res) => {
-    const {token} = req.body
-    if(!token)
-        return res.status(400).send({status: 'error', msg: 'Token is required'})
-
+router.post('/logout', verifyToken, async(req, res) => {
     try {
-        //verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
+        const guestId = req.user._id
 
-        // check if user still exists
-        const guest = await Guest.findById(decoded._id)
-        if (!guest)
-        return res.status(404).send({ status: 'error', msg: 'Account no longer exists' })
-
-        // update is_online to false
-        await Guest.updateOne({ _id: decoded._id }, { is_online: false })
+        // Set guest offline
+        await Guest.findByIdAndUpdate(guestId, { is_online: false })
+    
         return res.status(200).send({ status: 'ok', msg: 'Logout Successful' })
 
     } catch (error) {
@@ -183,32 +176,30 @@ router.post('/logout', async(req, res) => {
 })
 
 // endpoint to change password
-router.post('/change_password', async(req, res)=>{
-    const {token , old_password, new_password, confirm_new_password} = req.body
+router.post('/change_password', verifyToken, async(req, res)=>{
+    const {old_password, new_password, confirm_new_password} = req.body
 
     //check if fields are passed correctly
-    if(!token || !old_password || !new_password || !confirm_new_password){
+    if(!old_password || !new_password || !confirm_new_password){
        return res.status(400).send({status: 'error', msg: 'all fields must be filled'})
     }
 
     // get guest document and change password
     try {
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
+        const guest =  await Guest.findById(req.user._id).select("password")
 
-        let Cguest = await Guest.findOne({_id: guest._id}).select("password")
-
-        if (!Cguest) {
+        if (!guest) {
             return res.status(400).send({status:'error', msg:'Guest not found'})
         }
 
         //Compare old password
-        const check = await bcrypt.compare(old_password, Cguest.password)
+        const check = await bcrypt.compare(old_password, guest.password)
         if(!check){
             return res.status(400).send({status:'error', msg:'old password is incorrect'})
         }
 
         //Prevent reusing old password
-        const isSamePassword = await bcrypt.compare(new_password, Cguest.password)
+        const isSamePassword = await bcrypt.compare(new_password, guest.password)
         if(isSamePassword){
             return res.status(400).send({status:'error', msg:'New password must be different from the old password'})
         }
@@ -220,7 +211,7 @@ router.post('/change_password', async(req, res)=>{
 
         //Hash new password and update
         const updatePassword = await bcrypt.hash(confirm_new_password, 10)
-        await Guest.findOneAndUpdate({_id: guest._id}, {password: updatePassword})
+        await Guest.findByIdAndUpdate(req.user._id, {password: updatePassword})
 
         return res.status(200).send({status: 'successful', msg: 'Password successfully changed'})
     } catch (error) {
@@ -467,20 +458,13 @@ const resetPasswordCode = req.params.resetPasswordCode
   })
 
 //endpoint to delete account
-router.post('/delete', async(req, res) => {
-    const {token} = req.body
-    if(!token)
-        return res.status(400).send({status: 'error', msg: 'Token is required'})
-
+router.post('/delete', verifyToken, async(req, res) => {
     try {
-        //verify token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         //Find the guest and delete the account
-        const Dguest = await Guest.findByIdAndDelete(guest._id)
+        const deleted = await Guest.findByIdAndDelete(req.user._id)
 
         //Check if the guest exists and was deleted
-        if(!Dguest)
+        if(!deleted)
             return res.status(400).send({status: 'error', msg: 'No guest Found'})
 
         return res.status(200).send({status: 'ok', msg: 'Account Successfully deleted'})
