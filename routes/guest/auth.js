@@ -13,7 +13,7 @@ const { sendOTP, sendPasswordReset } = require("../../utils/nodemailer")
 router.post('/sign_up', async(req, res) =>{
     const {fullname, email, phone_no, password} = req.body
 
-    if(!fullname || (!email && !phone_no) || !password)
+    if(!fullname || !email || !phone_no || !password)
         return res.status(400).send({status: 'error', msg: 'All fields must be filled'})
 
     // Start try block

@@ -5,15 +5,18 @@ const dotenv = require('dotenv')
 dotenv.config()
 
 const mongoose = require('mongoose')
-/*
+
 const cors = require('cors')
+
+// Allow any origin during development
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:3000'], // add both dev ports just in case
-    credentials: true, // allow cookies/tokens if needed
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], // allow all HTTP methods
-    allowedHeaders: ['Content-Type', 'Authorization'] // allow headers used by axios
+    origin: '*', // Allow all origins for now
+    credentials: true, // optional, only if frontend sends cookies
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }))
-*/
+
+
 
 // connect database
 mongoose.connect(process.env.MONGO_URI, {
