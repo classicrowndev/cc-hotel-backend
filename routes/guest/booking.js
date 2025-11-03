@@ -4,43 +4,34 @@ const router = express.Router()
 const dotenv = require('dotenv')
 dotenv.config()
 
-const jwt = require('jsonwebtoken')
-const nodemailer = require("nodemailer");
 const Booking = require('../../models/booking')
 const Room = require('../../models/room')
+const verifyToken = require('../../middleware/verifyToken') // your middleware
+const { sendGuestBookingMail, sendGuestCancellationMail } = require('../../utils/nodemailer')
 
-
-// Configure Nodemailer
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER, // your Gmail address
-        pass: process.env.EMAIL_PASS  // app password
-    }
-})
 
 
 // Create a new booking/reservation (Guest reserves a room)
-router.post('/create', async (req, res) => {
-    const { token, email, id, amount, duration, no_of_guests, checkInDate, checkOutDate } = req.body
+router.post('/create', verifyToken, async (req, res) => {
+    const { email, room_type, duration, no_of_guests, checkInDate, checkOutDate } = req.body
 
-    if (!token || !email || !id || !amount || !duration || !no_of_guests || !checkInDate || !checkOutDate) {
+    if (!email || !room_type || !duration || !no_of_guests || !checkInDate || !checkOutDate) {
         return res.status(400).send({ status: 'error', msg: 'All fields must be filled' })
     }
 
     try {
-        // Verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
-        // Find the selected room
-        const room = await Room.findById(id)
+        // Find an available room of the requested type
+        const room = await Room.findOne ({ type: room_type, availability: 'available' })
         if (!room) {
-            return res.status(400).send({ status: 'error', msg: 'Room not found' })
+            return res.status(400).send({ status: 'error', msg: `No available rooms for type: ${room_type}` })
         }
+
+        // Calculate the total amount automatically
+        const amount = room.price * duration
 
         // Create a new booking
         const booking = new Booking({
-            guest: guest._id,
+            guest: req.user._id, // Assuming verifyToken sets req.user
             email,
             room: room._id,
             room_no: room.name,
@@ -50,6 +41,7 @@ router.post('/create', async (req, res) => {
             no_of_guests,
             checkInDate,
             checkOutDate,
+            status: 'Booked',
             timestamp: Date.now()
         })
 
@@ -60,35 +52,11 @@ router.post('/create', async (req, res) => {
         await room.save()
 
         // Send booking confirmation email
-        const mailOptions = {
-            from: `"Hotel Reservations" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: "Room Booking Confirmation",
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Room Booking Confirmed</h2>
-                    <p>Dear Guest,</p>
-                    <p>Your booking for <b>${room.name}</b> has been successfully confirmed.</p>
-                    <ul>
-                        <li><b>Room Type:</b> ${room.type}</li>
-                        <li><b>Check-in:</b> ${new Date(checkInDate).toDateString()}</li>
-                        <li><b>Check-out:</b> ${new Date(checkOutDate).toDateString()}</li>
-                        <li><b>Guests:</b> ${no_of_guests}</li>
-                        <li><b>Amount:</b> ₦${amount}</li>
-                    </ul>
-                    <p>Status: <b>Booked</b></p>
-                    <p>We look forward to hosting you!</p>
-                    <br/>
-                    <p>Warm regards,<br/>Hotel Reservations Team</p>
-                </div>
-            `
-        }
+        await sendGuestBookingMail( email, req.user.fullname, // or req.user.name
+            room.name, room.type, checkInDate, checkOutDate, no_of_guests, amount
+        )
 
-        await transporter.sendMail(mailOptions)
-
-        return res.status(200).send({
-            status: 'success',
-            msg: 'Room booked successfully and confirmation email sent',
+        return res.status(200).send({ status: 'success', msg: 'Room booked successfully and confirmation email sent',
             booking
         })
 
@@ -102,19 +70,10 @@ router.post('/create', async (req, res) => {
 
 
 // View all bookings/reservations for the logged-in guest
-router.post('/all', async (req, res) => {
-    const { token } = req.body
-
-    if (!token) {
-        return res.status(400).send({ status: 'error', msg: 'Token must be provided.' })
-    }
-
+router.post('/all', verifyToken, async (req, res) => {
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // fetch the bookings
-        const bookings = await Booking.find({ guest: guest._id })
+        const bookings = await Booking.find({ guest: req.user._id })
             .populate('room', 'name type price availability')
             .sort({ timestamp: -1 })
 
@@ -133,17 +92,14 @@ router.post('/all', async (req, res) => {
 
 
 // View a single booking/reservation by ID
-router.post('/view', async (req, res) => {
-    const { token, id } = req.body
+router.post('/view', verifyToken, async (req, res) => {
+    const { id } = req.body
 
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'All fields must be filled.' })
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Booking ID is required.' })
     }
 
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // fetch the booking
         const booking = await Booking.findById(id).populate('room', 'name type price')
 
@@ -151,7 +107,7 @@ router.post('/view', async (req, res) => {
             return res.status(400).send({ status: 'error', msg: 'Booking not found.' })
         }
 
-        if (booking.guest.toString() !== guest._id.toString()) {
+        if (booking.guest.toString() !== req.user._id.toString()) {
             return res.status(400).send({ status: 'error', msg: 'Unauthorized access to this booking' })
         }
 
@@ -166,17 +122,14 @@ router.post('/view', async (req, res) => {
 
 
 // Cancel a booking/reservation
-router.post('/cancel', async (req, res) => {
-    const { token, id } = req.body
+router.post('/cancel', verifyToken, async (req, res) => {
+    const { id } = req.body
 
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'All fields must be filled.' })
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Booking ID is required.' })
     }
 
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // fetch the booking
         const booking = await Booking.findById(id)
 
@@ -184,7 +137,7 @@ router.post('/cancel', async (req, res) => {
             return res.status(400).send({ status: 'error', msg: 'Booking not found.' })
         }
 
-        if (booking.guest.toString() !== guest._id.toString()) {
+        if (booking.guest.toString() !== req.user._id.toString()) {
             return res.status(400).send({ status: 'error', msg: 'Unauthorized access to this booking' })
         }
 
@@ -202,23 +155,10 @@ router.post('/cancel', async (req, res) => {
         }
 
         // Send cancellation email
-        const mailOptions = {
-            from: `"Hotel Reservations" <${process.env.EMAIL_USER}>`,
-            to: booking.email,
-            subject: "Room Booking Cancelled",
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Booking Cancelled</h2>
-                    <p>Dear Guest,</p>
-                    <p>Your booking for <b>${booking.room_no}</b> has been successfully cancelled.</p>
-                    <p>If this was a mistake, you can rebook anytime through our website.</p>
-                    <br/>
-                    <p>Warm regards,<br/>Hotel Reservations Team</p>
-                </div>
-            `
-        }
-
-        await transporter.sendMail(mailOptions)
+        await sendGuestCancellationMail( booking.email,
+            req.user.fullname, // or guest name
+            booking.room_no
+    )
 
         return res.status(200).send({ status: 'success', msg: 'Booking cancelled and email sent', booking })
     } catch (e) {

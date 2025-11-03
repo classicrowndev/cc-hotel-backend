@@ -1,7 +1,7 @@
 const express = require("express")
 const router = express.Router()
 
-const Policy = require("../../models/policy.js");
+const Policy = require("../../models/policy.js")
 
 // Fetch all policies (e.g. Privacy Policy, Terms of Service)
 router.post("/all", async (req, res) => {

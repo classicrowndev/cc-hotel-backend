@@ -1,9 +1,17 @@
 const express = require('express')
 const router = express.Router()
 
-const jwt = require('jsonwebtoken')
+const verifyToken = require('../../middleware/verifyToken') // your middleware
 const Order = require('../../models/order')
 const Dish = require('../../models/dish')
+
+//Helper to check role access
+const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
+    if (!allowedRoles.includes(user.role))
+        return false
+    if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
+        return false
+}
 
 
 // ==========================================
@@ -12,20 +20,17 @@ const Dish = require('../../models/dish')
 
 
 // Add new order (Owner/Admin only)
-router.post('/add', async (req, res) => {
-    const { token, guest, email, dishes, room, payment_method } = req.body
-    if (!token || !guest || !email || !dishes || !room || !payment_method) {
+router.post('/add', verifyToken, async (req, res) => {
+    const { guest, email, dishes, room, payment_method } = req.body
+    if (!guest || !email || !dishes || !room || !payment_method) {
         return res.status(400).send({ status: 'error', msg: 'All fields are required' })
     }
 
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'order')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add orders.' })
+    }
+
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ['Owner', 'Admin']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add orders.' })
-        }
-
         if (!Array.isArray(dishes) || dishes.length === 0) {
             return res.status(400).send({ status: 'error', msg: 'Dishes must be provided as a non-empty array' })
         }
@@ -73,24 +78,12 @@ router.post('/add', async (req, res) => {
 
 
 // View all orders (Owner/Admin or assigned Staff)
-router.post('/all', async (req, res) => {
-    const { token } = req.body
-    if (!token)
-        return res.status(400).send({ status: 'error', msg: 'Token is required' })
+router.post('/all', verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'order')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        // Restrict staff to only those assigned to "order"
-        if (decoded.role === 'Staff' && decoded.task !== 'order') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to order operations' })
-        }
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-        }
-
         const orders = await Order.find().sort({ order_date: -1 })
         if (!orders.length) return res.status(200).send({ status: 'ok', msg: 'No orders found' })
 
@@ -105,21 +98,16 @@ router.post('/all', async (req, res) => {
 
 
 // View specific order (Owner/Admin or assigned Staff)
-router.post('/view', async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id)
-        return res.status(400).send({ status: 'error', msg: 'Token and order ID required' })
+router.post('/view', verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id)
+        return res.status(400).send({ status: 'error', msg: 'Order ID is required' })
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'order')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (decoded.role === 'Staff' && decoded.task !== 'order')
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to order operations' })
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role))
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-
         const order = await Order.findById(id)
         if (!order) return res.status(404).send({ status: 'error', msg: 'Order not found' })
 
@@ -134,27 +122,20 @@ router.post('/view', async (req, res) => {
 
 
 // Update order status (Owner/Admin or assigned Staff)
-router.post('/update_status', async (req, res) => {
-    const { token, id, status } = req.body
-    if (!token || !id || !status)
-        return res.status(400).send({ status: 'error', msg: 'Token, order ID and status are required' })
+router.post('/update_status', verifyToken, async (req, res) => {
+    const { id, status } = req.body
+    if (!id || !status)
+        return res.status(400).send({ status: 'error', msg: 'Order ID and status are required' })
+
+    const validStatuses = ["Order Placed", "Preparing", "Served", "Delivered"]
+    if (!validStatuses.includes(status))
+        return res.status(400).send({ status: 'error', msg: 'Invalid order status' })      
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'order')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (decoded.role === 'Staff' && decoded.task !== 'order') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to order operations' })
-        }
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role' })
-        }
-
-        const validStatuses = ["Order Placed", "Preparing", "Served", "Delivered"]
-        if (!validStatuses.includes(status))
-            return res.status(400).send({ status: 'error', msg: 'Invalid order status' })
-
         const updatedOrder = await Order.findByIdAndUpdate(id, { status, timestamp: Date.now() }, { new: true })
         if (!updatedOrder)
             return res.status(404).send({ status: 'error', msg: 'Order not found' })
@@ -169,20 +150,17 @@ router.post('/update_status', async (req, res) => {
 })
 
 
-// Delete order (Owner/Admin only)
-router.post('/delete', async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id)
-        return res.status(400).send({ status: 'error', msg: 'Token and order ID are required' })
+// Delete order (Owner/Admin only or assigned staff)
+router.post('/delete', verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id)
+        return res.status(400).send({ status: 'error', msg: 'Order ID is required' })
 
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'order')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+    
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ['Owner', 'Admin']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Only Owner/Admin can delete orders.' })
-        }
-
         const deleted = await Order.findByIdAndDelete(id)
         if (!deleted)
             return res.status(404).send({ status: 'error', msg: 'Order not found or already deleted' })
@@ -197,19 +175,15 @@ router.post('/delete', async (req, res) => {
 })
 
 
-// Filter (Owner/Admin only)
-router.post('/filter', async (req, res) => {
-    const { token, status, startDate, endDate } = req.body
-    if (!token)
-        return res.status(400).send({ status: 'error', msg: 'Token required' })
+// Filter (Owner/Admin or assigned staff)
+router.post('/filter', verifyToken, async (req, res) => {
+    const { status, startDate, endDate } = req.body
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'order')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ['Owner', 'Admin']
-        if (!allowedRoles.includes(decoded.role))
-            return res.status(403).send({ status: 'error', msg: 'Access denied. Unauthorized role.' })
-
         const query = {}
 
         if (status) query.status = status

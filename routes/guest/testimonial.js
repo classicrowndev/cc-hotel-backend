@@ -2,14 +2,15 @@ const express = require('express')
 const router = express.Router()
 const jwt = require('jsonwebtoken')
 
-const Testimonial = require("../../models/testimonial.js");
+const Testimonial = require("../../models/testimonial.js")
+const verifyToken = require('../../middleware/verifyToken')
 
 
 // Create a new testimonial
-router.post('/create', async (req, res) => {
-    const { token, comment, rating } = req.body
+router.post('/create', verifyToken, async (req, res) => {
+    const { comment, rating } = req.body
 
-    if (!token || !comment || !rating) {
+    if (!comment || !rating) {
         return res.status(400).send({ status: 'error', msg: 'All fields are required.' })
     }
 
@@ -57,17 +58,8 @@ router.post('/all', async (req, res) => {
 
 
 // View testimonials by logged-in guest
-router.post('/mine', async (req, res) => {
-    const { token } = req.body
-
-    if (!token) {
-        return res.status(400).send({ status: 'error', msg: 'Token is required.' })
-    }
-
+router.post('/mine', verifyToken, async (req, res) => {
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // fetch all testimonials
         const testimonials = await Testimonial.find({ guest: guest._id }).sort({ timestamp: -1 })
 

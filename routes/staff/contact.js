@@ -92,7 +92,7 @@ router.post("/all", async (req, res) => {
 })
 
 // Staff views all guest messages
-router.get("/guest-messages", async (req, res) => {
+router.get("/guest_messages", async (req, res) => {
     const token = req.headers.authorization?.split(" ")[1];
 
     if (!token) return res.status(400).send({ status: "error", msg: "Token must be provided." });
@@ -118,10 +118,10 @@ router.get("/guest-messages", async (req, res) => {
 
 // Staff replies to a guest message
 router.post("/reply", async (req, res) => {
-    const { token, messageId, replyMessage } = req.body;
+    const { token, messageId, replyMessage } = req.body
 
     if (!token || !messageId || !replyMessage) {
-        return res.status(400).send({ status: "error", msg: "All fields are required." });
+        return res.status(400).send({ status: "error", msg: "All fields are required." })
     }
 
     try {
@@ -129,11 +129,11 @@ router.post("/reply", async (req, res) => {
 
         // Only allow certain roles to reply
         if (!["Receptionist", "Manager", "Admin"].includes(staff.role)) {
-            return res.status(403).send({ status: "error", msg: "You are not authorized to reply to guest messages." });
+            return res.status(403).send({ status: "error", msg: "You are not authorized to reply to guest messages." })
         }
 
         const guestMessage = await Contact.findById(messageId);
-        if (!guestMessage) return res.status(404).send({ status: "error", msg: "Guest message not found." });
+        if (!guestMessage) return res.status(404).send({ status: "error", msg: "Guest message not found." })
 
         // Save the reply as a new Contact entry (could also make a separate Reply model)
         const reply = new Contact({
@@ -169,14 +169,14 @@ router.post("/reply", async (req, res) => {
 
         await transporter.sendMail(mailOptions);
 
-        return res.status(200).send({ status: "success", msg: "Reply sent to guest successfully." });
+        return res.status(200).send({ status: "success", msg: "Reply sent to guest successfully." })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
-            return res.status(400).send({ status: "error", msg: "Token verification failed." });
+            return res.status(400).send({ status: "error", msg: "Token verification failed." })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to send reply.", error: e.message });
+        return res.status(500).send({ status: "error", msg: "Failed to send reply.", error: e.message })
     }
-});
+})
 
 module.exports = router

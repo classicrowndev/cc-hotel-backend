@@ -51,6 +51,8 @@ app.use('/guest_policy', require('./routes/guest/policy'))
 
 
 //staff routes
+app.use('/staff_owner', require('./routes/staff/owner'))
+app.use('/staff_admin', require('./routes/staff/admin'))
 app.use('/staff_auth', require('./routes/staff/auth'))
 app.use('/staff_profile', require('./routes/staff/profile'))
 app.use('/staff_dashboard', require('./routes/staff/dashboard'))

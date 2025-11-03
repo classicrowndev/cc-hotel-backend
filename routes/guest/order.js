@@ -1,22 +1,19 @@
 const express = require('express')
 const router = express.Router()
-const jwt = require('jsonwebtoken')
+const verifyToken = require('../../middleware/verifyToken')
 const Order = require('../../models/order')
 const Dish = require('../../models/dish')
 
 
 // Place a new order
-router.post('/place', async (req, res) => {
-    const { token, email, dishes, room, payment_method } = req.body
+router.post('/place', verifyToken, async (req, res) => {
+    const { email, dishes, room, payment_method } = req.body
 
-    if (!token || !email || !dishes || !room || !payment_method) {
+    if (!email || !dishes || !room || !payment_method) {
         return res.status(400).send({ status: 'error', msg: 'All fields are required' })
     }
 
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         if (!Array.isArray(dishes) || dishes.length === 0) {
             return res.status(400).send({ status: 'error', msg: 'Dishes must be provided as a non-empty array' })
         }
@@ -72,17 +69,8 @@ router.post('/place', async (req, res) => {
 
 
 // View all orders by a guest
-router.post('/all', async (req, res) => {
-    const { token } = req.body
-
-    if (!token) {
-        return res.status(400).send({ status: 'error', msg: 'Token must be provided' })
-    }
-
+router.post('/all', verifyToken, async (req, res) => {
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // Fetch all orders
         const orders = await Order.find({ guest: guest._id }).sort({ order_date: -1 })
         if (orders.length === 0) {
@@ -100,17 +88,14 @@ router.post('/all', async (req, res) => {
 
 
 // View a specific order
-router.post('/view', async (req, res) => {
-    const { token, id } = req.body
+router.post('/view', verifyToken, async (req, res) => {
+    const { id } = req.body
 
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'Token and order ID are required' })
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Order ID is required' })
     }
 
     try {
-        // verify the guest's toen
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // Fetch the order
         const order = await Order.findById(id)
         if (!order) {
@@ -132,17 +117,14 @@ router.post('/view', async (req, res) => {
 
 
 // Cancel an order (if still pending)
-router.post('/cancel', async (req, res) => {
-    const { token, id } = req.body
+router.post('/cancel', verifyToken, async (req, res) => {
+    const { id } = req.body
 
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'Token and order ID are required' })
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Order ID is required' })
     }
 
     try {
-        // Verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // Fetch the order
         const order = await Order.findById(id)
         if (!order) {

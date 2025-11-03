@@ -1,16 +1,19 @@
 const mongoose = require("mongoose");
 
 const eventSchema = new mongoose.Schema({
-    name: {type: String, required: true},
+    guest: {type: mongoose.Schema.Types.ObjectId, ref: "Guest", required: true},
+    hall: {type: mongoose.Schema.Types.ObjectId, ref: "Hall", required: true},
+    hall_name: {type: String, required: true},
     description: String,
-    price: {type: Number, required: true},
+    total_price: {type: Number, required: true},
     date: Date,
+    duration: String,
     location: String,
     availablility: {type: Boolean, default: true},
     status: {type: String, enum: ["Booked", "In Progress", "Completed", "Cancelled", "Overdue"],
         default: "Booked"
     },
-    image: String,
+    additional_notes: String,
     timestamp: Number
 }, { collection: 'events' })
 

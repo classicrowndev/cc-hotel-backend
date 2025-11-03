@@ -4,7 +4,7 @@ const router = express.Router()
 const dotenv = require("dotenv")
 dotenv.config()
 
-const jwt = require("jsonwebtoken")
+const verifyToken = require('../../middleware/verifyToken')
 const nodemailer = require("nodemailer");
 const Hall = require("../../models/hall")
 
@@ -18,25 +18,31 @@ const transporter = nodemailer.createTransport({
 })
 
 
+//Helper to check role access
+const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
+    if (!allowedRoles.includes(user.role))
+        return false
+    if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
+        return false
+}
+
 // -----------------------------
 // STAFF HALL MANAGEMENT ROUTES
 // -----------------------------
 
 
 // Create a new hall booking (Admin & Owner only)
-router.post("/create", async (req, res) => {
-    const { token, guest, email, hall_type, location, amount, duration, checkInDate, checkOutDate } = req.body
-    if (!token || !guest || !email || !hall_type || !amount || !duration || !checkInDate || !checkOutDate) {
+router.post("/create", verifyToken, async (req, res) => {
+    const { guest, email, hall_type, location, amount, duration, checkInDate, checkOutDate } = req.body
+    if (!guest || !email || !hall_type || !amount || !duration || !checkInDate || !checkOutDate) {
         return res.status(400).send({ status: "error", msg: "All required fields must be provided" })
     }
 
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        
-        if (!['Admin', 'Owner'].includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can create hall bookings.' })
-        }
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'hall')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can create new hall bookings.' })
+    }
 
+    try {
         // If the client approves assigned staff to create hall bookings
         /*if (decoded.role === 'Staff' && decoded.task !== 'hall') {
             return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to hall operations' })
@@ -97,24 +103,12 @@ router.post("/create", async (req, res) => {
 
 
 // View all halls (Admin, Owner, or assigned staff)
-router.post("/all", async (req, res) => {
-    const { token } = req.body
-    if (!token) {
-        return res.status(400).send({ status: "error", msg: "Token is required" })
+router.post("/all", verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'hall')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (decoded.role === 'Staff' && decoded.task !== 'hall') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to hall operations' })
-        }
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-        }
-
         const halls = await Hall.find().sort({ timestamp: -1 })
         if (!halls.length) {
             return res.status(200).send({ status: "ok", msg: "No hall bookings found" })
@@ -131,24 +125,18 @@ router.post("/all", async (req, res) => {
 
 
 // View specific hall booking
-router.post("/view", async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id) {
-        return res.status(400).send({ status: "error", msg: "Token and hall ID are required" })
+router.post("/view", verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id) {
+        return res.status(400).send({ status: "error", msg: "Hall ID is required" })
     }
 
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'hall')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
+
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (decoded.role === 'Staff' && decoded.task !== 'hall') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to hall operations' })
-        }
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-        }
-
         const hall = await Hall.findById(id)
         if (!hall) {
             return res.status(404).send({ status: "error", msg: "Hall booking not found" })
@@ -165,22 +153,18 @@ router.post("/view", async (req, res) => {
 
 
 // Update hall booking (Admin & Owner only)
-router.post("/update", async (req, res) => {
-    const { token, id, ...updateFields } = req.body
-    if (!token || !id) {
-        return res.status(400).send({ status: "error", msg: "Token and hall ID are required" })
+router.post("/update", verifyToken, async (req, res) => {
+    const { id, ...updateFields } = req.body
+    if (!id) {
+        return res.status(400).send({ status: "error", msg: "Hall ID is required" })
     }
 
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'hall')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner update hall bookings.' })
+    }
+
+
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (!['Admin', 'Owner'].includes(decoded.role)) {
-            return res.status(403).send({ 
-                status: 'error', msg: 'Access denied. Only Admin or Owner can update hall bookings'
-            })
-        }
-
-
         // If the client approves assigned staff to update hall bookings
         /*if (decoded.role === 'Staff' && decoded.task !== 'hall') {
             return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to hall operations' })
@@ -209,23 +193,17 @@ router.post("/update", async (req, res) => {
 
 
 // Cancel hall booking (Admin & Owner only)
-router.post("/cancel", async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id) {
-        return res.status(400).send({ status: "error", msg: "Token and hall ID are required" })
+router.post("/cancel", verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id) {
+        return res.status(400).send({ status: "error", msg: "Hall ID are required" })
+    }
+
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'hall')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can cancel hall booking.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (!['Admin', 'Owner'].includes(decoded.role)) {
-            return res.status(403).send({ 
-                status: 'error', 
-                msg: 'Access denied. Only Admin or Owner can cancel hall booking.' 
-            })
-        }
-
-
         // If the client approves assigned staff to cancel hall bookings
         /*if (decoded.role === 'Staff' && decoded.task !== 'hall') {
             return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to hall operations' })

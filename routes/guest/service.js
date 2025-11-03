@@ -1,23 +1,14 @@
 const express = require('express')
 const router = express.Router()
 
-const jwt = require('jsonwebtoken')
 const Service = require('../../models/service')
 const ServiceRequest = require('../../models/serviceRequest')
+const verifyToken = require('../../middleware/verifyToken')
 
 
 // Fetch all available services
-router.post('/all', async (req, res) => {
-    const { token } = req.body
-
-    if (!token) {
-        return res.status(400).send({ status: 'error', msg: 'Token must be provided' })
-    }
-
+router.post('/all', verifyToken, async (req, res) => {
     try {
-        // verify guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         // find all available services
         const services = await Service.find({ availability: true }).sort({ timestamp: -1 })
 
@@ -34,16 +25,13 @@ router.post('/all', async (req, res) => {
 })
 
 // View details of a single service
-router.post('/view', async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'Token and service ID are required' })
+router.post('/view', verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Service ID is required' })
     }
 
     try {
-        //verify guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         // Find the available service
         const service = await Service.findById(id)
         if (!service) return res.status(400).send({ status: 'error', msg: 'Service not found' })
@@ -58,16 +46,13 @@ router.post('/view', async (req, res) => {
 })
 
 // Filter services by type
-router.post('/filter', async (req, res) => {
-    const { token, service_type } = req.body
-    if (!token || !service_type) {
-        return res.status(400).send({ status: 'error', msg: 'Token and service type are required' })
+router.post('/filter', verifyToken, async (req, res) => {
+    const { service_type } = req.body
+    if (!service_type) {
+        return res.status(400).send({ status: 'error', msg: 'Service type is required' })
     }
 
     try {
-        // verify guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         // find the filtered services
         const services = await Service.find({ service_type, availability: true }).sort({ timestamp: -1 })
 
@@ -84,16 +69,13 @@ router.post('/filter', async (req, res) => {
 })
 
 // Search services by name
-router.post('/search', async (req, res) => {
-    const { token, keyword } = req.body
-    if (!token || !keyword) {
-        return res.status(400).send({ status: 'error', msg: 'Token and search keyword are required' })
+router.post('/search', verifyToken, async (req, res) => {
+    const { keyword } = req.body
+    if (!keyword) {
+        return res.status(400).send({ status: 'error', msg: 'Search keyword is required' })
     }
 
     try {
-        // verify guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         // fetch all services
         const services = await Service.find({
             name: { $regex: keyword, $options: 'i' },
@@ -114,17 +96,14 @@ router.post('/search', async (req, res) => {
 
 
 // Guest requests a service (e.g. Laundry, Spa)
-router.post('/request', async (req, res) => {
-    const { token, email, id, room, payment_method, amount } = req.body
+router.post('/request', verifyToken, async (req, res) => {
+    const { email, id, room, payment_method, amount } = req.body
 
-    if (!token || !email || !id || !room || !payment_method || !amount) {
+    if (!email || !id || !room || !payment_method || !amount) {
         return res.status(400).send({ status: 'error', msg: 'All fields are required' })
     }
     
     try {
-        // verify guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // Fetch the services requested
         const service = await Service.findById(id)
         if (!service) {
@@ -157,16 +136,13 @@ router.post('/request', async (req, res) => {
 })
 
 // view the service request status
-router.post('/request_status', async (req, res) => {
-    const { token, request_id } = req.body
-    if (!token || !request_id) {
-        return res.status(400).send({ status: 'error', msg: 'Token and request ID are required' })
+router.post('/request_status', verifyToken, async (req, res) => {
+    const { request_id } = req.body
+    if (!request_id) {
+        return res.status(400).send({ status: 'error', msg: 'Rrequest ID is required' })
     }
 
     try {
-        // verify guest
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // find the guest's own request
         const request = await ServiceRequest.findOne({ _id: request_id, guest: guest._id })
 

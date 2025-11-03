@@ -4,23 +4,20 @@ const router = express.Router()
 const dotenv = require('dotenv')
 dotenv.config()
 
-const jwt = require("jsonwebtoken");
+const verifyToken = require('../../middleware/verifyToken') // your middleware
 const Contact = require("../../models/contact")
 const nodemailer = require("nodemailer")
 
 
 // Guest sends a message (contact form)
-router.post("/send", async (req, res) => {
-    const { token, name, email, message } = req.body
+router.post("/send", verifyToken, async (req, res) => {
+    const { name, email, message } = req.body
 
-    if (!token || !name || !email || !message) {
+    if (!name || !email || !message) {
         return res.status(400).send({ status: "error", msg: "All fields are required." })
     }
 
     try {
-        // Verify guest token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // Save message to DB
         const newMessage = new Contact({
             user: guest._id,
@@ -68,17 +65,8 @@ router.post("/send", async (req, res) => {
 
 
 // Guest views all their past messages
-router.post("/all", async (req, res) => {
-    const { token } = req.body
-
-    if (!token) {
-        return res.status(400).send({ status: "error", msg: "Token must be provided." })
-    }
-    
+router.post("/all", verifyToken, async (req, res) => {
     try {
-        // Verify guest token
-        const guest = jwt.verify(token, process.env.JWT_SECRET);
-
         const messages = await Contact.find({ user: guest._id })
         .sort({ createdAt: -1 }).select("name email message createdAt")
 

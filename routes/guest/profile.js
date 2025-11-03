@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 
-const jwt = require('jsonwebtoken')
+const verifyToken = require('../../middleware/verifyToken') // your middleware
 const Guest = require('../../models/guest')
 
 /*
@@ -10,16 +10,11 @@ const Uploader = require('../utils/multer')
 */
 
 //edit profile
-router.post('/edit', /*Uploader.single('image'),*/ async(req, res) =>{
-    const {token, fullname, email, phone_no, address, gender} = req.body
-    if(!token)
-        return res.status(400).send({status: 'error', msg:'Token must be provided'})
-
+router.post('/edit', /*Uploader.single('image'),*/ verifyToken, async(req, res) =>{
+    const {fullname, email, phone_no, address, gender} = req.body
     try {
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
-        let Eguest = await Guest.findById({_id: guest._id}, {fullname: 1, email: 1, phone_no: 1, address: 1, gender: 1, profile_img_id: 1, profile_img_url: 1}).lean()
-        if(!Eguest)
+        let guest = await Guest.findById(req.user._id, {fullname: 1, email: 1, phone_no: 1, address: 1, gender: 1, profile_img_id: 1, profile_img_url: 1}).lean()
+        if(!guest)
             return res.status(200).send({status: 'ok', msg: 'No guest found'})
 
         /*
@@ -40,18 +35,18 @@ router.post('/edit', /*Uploader.single('image'),*/ async(req, res) =>{
         
 
         //update guest document
-        Eguest = await Guest.findByIdAndUpdate({_id: guest._id}, {
-            fullname: fullname || Eguest.fullname,
-            email: email || Eguest.email,
-            phone_no: phone_no || Eguest.phone_no,
-            address: address || Eguest.address,
-            gender: gender || Eguest.gender,
-            /*profile_img_id: profile_img_id || Eguest.profile_img_id,
-            profile_img_url: profile_img_url || Eguest.profile_img_url
+        guest = await Guest.findByIdAndUpdate({_id: guest._id}, {
+            fullname: fullname || guest.fullname,
+            email: email || guest.email,
+            phone_no: phone_no || guest.phone_no,
+            address: address || guest.address,
+            gender: gender || guest.gender,
+            /*profile_img_id: profile_img_id || guest.profile_img_id,
+            profile_img_url: profile_img_url || guest.profile_img_url
             */
         }, {new: true}).lean()
 
-        return res.status(200).send({status: 'ok', msg: 'Edited successfully', Eguest})
+        return res.status(200).send({status: 'ok', msg: 'Edited successfully', guest})
 
     } catch (error) {
         console.log(error)
@@ -63,19 +58,13 @@ router.post('/edit', /*Uploader.single('image'),*/ async(req, res) =>{
 })
 
 // endpoint to view profile
-router.post('/view', async(req, res) =>{
-    const {token }= req.body
-    if(!token)
-        return res.status(400).send({status: 'error', msg: 'Token required'})
-
+router.post('/view', verifyToken, async(req, res) =>{
     try {
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
-        const Vguest = await Guest.findById({_id: guest._id}).lean()
-        if(!Vguest)
+        const guest = await Guest.findById(req.user._id).lean()
+        if(!guest)
             return res.status(200).send({status: 'ok', msg: 'No guest Found'})
 
-        return res.status(200).send({status: 'ok', msg: 'Successful', Vguest})
+        return res.status(200).send({status: 'ok', msg: 'Successful', guest})
         
     } catch (error) {
         console.log(error)

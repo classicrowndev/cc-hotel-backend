@@ -1,23 +1,14 @@
 const express = require('express')
 const router = express.Router()
 
-const jwt = require('jsonwebtoken')
 const Room = require('../../models/room')
+const verifyToken = require('../../middleware/verifyToken')
 
 
 
 //View all rooms
-router.post('/all', async(req, res) => {
-    const {token} = req.body
-
-    if(!token) {
-        return res.status(400).send({status: 'error', msg: 'Token must be provided'})
-    }
-
+router.post('/all', verifyToken, async(req, res) => {
     try {
-        //Verify the guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         //Fetch all available rooms
         const rooms = await Room.find()
 
@@ -35,17 +26,14 @@ router.post('/all', async(req, res) => {
 })
 
 // View a single room by ID
-router.post('/view', async(req, res) => {
-    const {token, id} = req.body
+router.post('/view', verifyToken, async(req, res) => {
+    const {id} = req.body
 
-    if(!token || !id) {
-        return res.status(400).send({status: 'error', msg: 'Token must be provided'})
+    if(!id) {
+        return res.status(400).send({status: 'error', msg: 'Room ID must be provided'})
     }
 
     try {
-        //Verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         //Find room by ID
         const room = await Room.findById({id, guest: guest._id})
         
@@ -63,17 +51,8 @@ router.post('/view', async(req, res) => {
 
 
 // View only available rooms
-router.post('/available', async(req, res) => {
-    const {token} = req.body
-
-    if(!token) {
-        return res.status(400).send({status: 'error', msg: 'Token must be provided'})
-    }
-
+router.post('/available', verifyToken, async(req, res) => {
     try {
-        //Verify the guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         //Find room by ID
         const availableRooms = await Room.find({availability: true})
         
@@ -91,17 +70,14 @@ router.post('/available', async(req, res) => {
 
 
 // View rooms by type (Standard, Deluxe, VIP, etc.)
-router.post('/type', async(req, res) => {
-    const {token, type} = req.body
+router.post('/type', verifyToken, async(req, res) => {
+    const {type} = req.body
 
-    if(!token || !!type) {
-        return res.status(400).send({status: 'error', msg: 'Token must be provided'})
+    if(!type) {
+        return res.status(400).send({status: 'error', msg: 'Room type must be provided'})
     }
 
     try {
-        //Verify the guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         //Find room by ID
         const rooms = await Room.find({type})
         

@@ -9,6 +9,7 @@ const nodemailer = require("nodemailer");
 const Booking = require('../../models/booking')
 const Room = require('../../models/room')
 const Guest = require('../../models/guest')
+const verifyToken = require('../../middleware/verifyToken') // your middleware
 
 
 // Configure Nodemailer
@@ -20,28 +21,28 @@ const transporter = nodemailer.createTransport({
     }
 })
 
-// Create a new booking/reservation manually (Staff creates on behalf of guest)
-router.post('/create', async (req, res) => {
-    const { token, guest_id, email, room_id, amount, duration, no_of_guests, checkInDate, checkOutDate } = req.body
+//Helper to check role access
+const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
+    if (!allowedRoles.includes(user.role))
+        return false
+    if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
+        return false
+}
 
-    if (!token || !guest_id || !email || !room_id ||
+// Create a new booking/reservation manually (Staff creates on behalf of guest)
+router.post('/create', verifyToken, async (req, res) => {
+    const { guest_id, email, room_id, amount, duration, no_of_guests, checkInDate, checkOutDate } = req.body
+
+    if (!guest_id || !email || !room_id ||
         !amount || !duration || !no_of_guests || !checkInDate || !checkOutDate) {
         return res.status(400).send({ status: 'error', msg: 'All fields must be filled.' })
     }
 
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'booking')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        // Restrict staff access
-        if (decoded.role === 'Staff' && decoded.task !== 'booking') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to booking operations' })
-        }
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-        }
-
         const guest = await Guest.findById(guest_id)
         if (!guest) return res.status(400).send({ status: 'error', msg: 'Guest not found.' })
 
@@ -109,24 +110,12 @@ router.post('/create', async (req, res) => {
 
 
 // View all bookings/reservation history (0wner/Admin/Assigned staff)
-router.post('/all', async (req, res) => {
-    const { token } = req.body
-    if (!token) {
-        return res.status(400).send({ status: 'error', msg: 'Token must be provided.' })
+router.post('/all', verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'booking')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
-
+    
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (decoded.role === 'Staff' && decoded.task !== 'booking') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to booking operations' })
-        }
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-        }
-
         const bookings = await Booking.find()
             .populate('guest', 'fullname email phone')
             .populate('room', 'name type price availability')
@@ -147,20 +136,16 @@ router.post('/all', async (req, res) => {
 
 
 // View a single booking (0wner/Admin/Assigned staff)
-router.post('/view', async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id)
-        return res.status(400).send({ status: 'error', msg: 'Token and booking ID are required.' })
+router.post('/view', verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id)
+        return res.status(400).send({ status: 'error', msg: 'Booking ID is required.' })
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'booking')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        if (decoded.role === 'Staff' && decoded.task !== 'booking')
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to booking operations' })
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role))
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-
         const booking = await Booking.findById(id)
             .populate('guest', 'fullname email phone')
             .populate('room', 'name type price availability')
@@ -178,25 +163,20 @@ router.post('/view', async (req, res) => {
 
 
 // Update booking/reservation status (0wner/Admin/Assigned staff)
-router.post('/update-status', async (req, res) => {
-    const { token, id, status } = req.body
-    if (!token || !id || !status)
+router.post('/update-status', verifyToken, async (req, res) => {
+    const { id, status } = req.body
+    if (!id || !status)
         return res.status(400).send({ status: 'error', msg: 'All fields must be provided.' })
 
     const validStatuses = ['Booked', 'Checked-in', 'Checked-out', 'Cancelled', 'Overdue']
     if (!validStatuses.includes(status))
         return res.status(400).send({ status: 'error', msg: 'Invalid status provided.' })
 
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'booking')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (decoded.role === 'Staff' && decoded.task !== 'booking')
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to booking operations' })
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role))
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-
         const booking = await Booking.findById(id).populate('room')
         if (!booking)
             return res.status(404).send({ status: 'error', msg: 'Booking not found.' })
@@ -240,20 +220,16 @@ router.post('/update-status', async (req, res) => {
 
 
 // Delete booking/reservation (0wner/Admin/Assigned staff)
-router.post('/delete', async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id)
-        return res.status(400).send({ status: 'error', msg: 'Token and booking ID are required.' })
+router.post('/delete', verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id)
+        return res.status(400).send({ status: 'error', msg: 'Booking ID is required.' })
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'booking')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        if (decoded.role === 'Staff' && decoded.task !== 'booking')
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to booking operations' })
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role))
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-
         const booking = await Booking.findByIdAndDelete(id)
         if (!booking)
             return res.status(404).send({ status: 'error', msg: 'Booking not found or already deleted.' })
@@ -274,20 +250,16 @@ router.post('/delete', async (req, res) => {
 
 
 // Search bookings (0wner/Admin/Assigned staff)
-router.post('/search', async (req, res) => {
-    const { token, query } = req.body
-    if (!token || !query)
-        return res.status(400).send({ status: 'error', msg: 'Token and search query are required.' })
+router.post('/search', verifyToken, async (req, res) => {
+    const { query } = req.body
+    if (!query)
+        return res.status(400).send({ status: 'error', msg: 'Search query is required.' })
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'booking')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        if (decoded.role === 'Staff' && decoded.task !== 'booking')
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to booking operations' })
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role))
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-
         const bookings = await Booking.find({
             $or: [
                 { room_no: { $regex: query, $options: 'i' } },

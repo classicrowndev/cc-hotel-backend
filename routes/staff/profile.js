@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 
-const jwt = require('jsonwebtoken')
+const verifyToken = require('../../middleware/verifyToken')
 const Staff = require('../../models/staff')
 
 /*
@@ -11,18 +11,12 @@ const Uploader = require('../../utils/multer')
 
 
 // Edit Staff Profile
-router.post('/edit', /*Uploader.single('image'),*/ async (req, res) => {
-    const { token, fullname, email, phone_no, address, gender } = req.body
-
-    if (!token) {
-        return res.status(400).send({ status: 'error', msg: 'Token must be provided' })
-    }
+router.post('/edit', /*Uploader.single('image'),*/ verifyToken, async (req, res) => {
+    const { fullname, email, phone_no, address, gender } = req.body
 
     try {
-        const staff = jwt.verify(token, process.env.JWT_SECRET)
-
         // Fetch existing staff
-        let Estaff = await Staff.findById(staff._id, {
+        let staff = await Staff.findById(req.user._id, {
             fullname: 1,
             email: 1,
             phone_no: 1,
@@ -32,7 +26,7 @@ router.post('/edit', /*Uploader.single('image'),*/ async (req, res) => {
             profile_img_url: 1
         }).lean()
 
-        if (!Estaff) {
+        if (!staff) {
             return res.status(404).send({ status: 'error', msg: 'Staff not found' })
         }
         
@@ -62,9 +56,9 @@ router.post('/edit', /*Uploader.single('image'),*/ async (req, res) => {
         */
 
         // Update staff document
-        Estaff = await Staff.findByIdAndUpdate(staff._id, updateFields, { new: true }).lean()
+        staff = await Staff.findByIdAndUpdate(staff._id, updateFields, { new: true }).lean()
 
-        return res.status(200).send({ status: 'success', msg: 'Profile updated successfully', Estaff })
+        return res.status(200).send({ status: 'success', msg: 'Profile updated successfully', staff })
 
     } catch (error) {
         console.error(error)
@@ -78,20 +72,13 @@ router.post('/edit', /*Uploader.single('image'),*/ async (req, res) => {
 // -----------------------------
 // View Staff Profile
 // -----------------------------
-router.post('/view', async (req, res) => {
-    const { token } = req.body
-
-    if (!token)
-        return res.status(400).send({ status: 'error', msg: 'Token must be provided' })
-
+router.post('/view', verifyToken, async (req, res) => {
     try {
-        const staff = jwt.verify(token, process.env.JWT_SECRET)
-
-        const Vstaff = await Staff.findById(staff._id).lean()
-        if (!Vstaff)
+        const staff = await Staff.findById(req.user._id).lean()
+        if (!staff)
             return res.status(404).send({ status: 'error', msg: 'Staff not found' })
 
-        return res.status(200).send({ status: 'success', msg: 'Profile fetched successfully', Vstaff })
+        return res.status(200).send({ status: 'success', msg: 'Profile fetched successfully', staff })
 
     } catch (error) {
         console.error(error)

@@ -1,23 +1,28 @@
 const express = require('express')
 const router = express.Router()
 
-const jwt = require("jsonwebtoken")
+const verifyToken = require('../../middleware/verifyToken') // your middleware
 const Service = require("../../models/service")
 
-// Add a new service (Only Manager or Admin)
-router.post("/add", async (req, res) => {
-    const { token, service_type, name, description, price, availability, status, image } = req.body
 
-    if (!token) return res.status(400).send({ status: "error", msg: "Token must be provided" })
+//Helper to check role access
+const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
+    if (!allowedRoles.includes(user.role))
+        return false
+    if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
+        return false
+}
+
+
+// Add a new service (Only Owner or Admin)
+router.post("/add", verifyToken, async (req, res) => {
+    const { service_type, name, description, price, availability, status, image } = req.body
+
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'service')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add new service.' })
+    }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const staffRole = decoded.role
-        if (!["Manager", "Admin"].includes(staffRole)) {
-            return res.status(403).send({ status: "error", msg: "Access denied. Unauthorized role." })
-        }
-
         const newService = new Service({
             service_type,
             name,
@@ -40,26 +45,17 @@ router.post("/add", async (req, res) => {
     }
 })
 
-// Update service details (Manager & Admin full update; Receptionist limited)
-router.post("/update", async (req, res) => {
-    const { token, id, ...updateData } = req.body
+// Update service details (Ower & Admin full update; Receptionist limited)
+router.post("/update", verifyToken, async (req, res) => {
+    const { id, ...updateData } = req.body
 
-    if (!token || !id) return res.status(400).send({ status: "error", msg: "Token and service ID are required" })
+    if (!id) return res.status(400).send({ status: "error", msg: "Service ID is required" })
+
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'service')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can update service details.' })
+    }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const staffRole = decoded.role
-        if (staffRole === "Receptionist") {
-            // Receptionists can only update availability and status
-            const allowedFields = ["availability", "status"]
-            for (let key in updateData) {
-                if (!allowedFields.includes(key)) delete updateData[key]
-            }
-        } else if (!["Manager", "Admin"].includes(staffRole)) {
-            return res.status(403).send({ status: "error", msg: "Access denied. Unauthorized role." })
-        }
-
         const updatedService = await Service.findByIdAndUpdate(id, updateData, { new: true })
         if (!updatedService) return res.status(404).send({ status: "error", msg: "Service not found" })
 
@@ -75,20 +71,12 @@ router.post("/update", async (req, res) => {
 
 
 // View all services (All staff roles with login)
-router.post("/all", async (req, res) => {
-    const { token } = req.body
-
-    if (!token) return res.status(400).send({ status: "error", msg: "Token must be provided" })
+router.post("/all", verifyToken, async (req, res) => {
+   if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'service')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ["Admin", "Manager", "Receptionist", "Concierge",
-            "Guest Relations Officer", "IT", "Event Coordinator"]
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: "error", msg: "Access denied. Unauthorized role." })
-        }
-
         const services = await Service.find().sort({ timestamp: -1 })
         if (services.length === 0) return res.status(200).send({ status: "ok", msg: "No services found" })
 
@@ -104,20 +92,16 @@ router.post("/all", async (req, res) => {
 
 
 // View a specific service (All staff roles with login)
-router.post("/view", async (req, res) => {
-    const { token, id } = req.body
+router.post("/view", verifyToken, async (req, res) => {
+    const { id } = req.body
 
-    if (!token || !id) return res.status(400).send({ status: "error", msg: "Token and service ID are required" })
+    if (!id) return res.status(400).send({ status: "error", msg: "Service ID are required" })
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'service')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ["Admin", "Manager", "Receptionist", "Concierge",
-            "Guest Relations Officer", "IT", "Event Coordinator"]
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: "error", msg: "Access denied. Unauthorized role." })
-        }
-
         const service = await Service.findById(id)
         if (!service) return res.status(404).send({ status: "error", msg: "Service not found" })
 
@@ -131,20 +115,18 @@ router.post("/view", async (req, res) => {
     }
 })
 
-// Delete a service (Only Manager or Admin)
-router.post("/delete", async (req, res) => {
-    const { token, id } = req.body
 
-    if (!token || !id) return res.status(400).send({ status: "error", msg: "Token and service ID are required" })
+// Delete a service (Only Owner or Admin)
+router.post("/delete", verifyToken, async (req, res) => {
+    const { id } = req.body
+
+    if (!id) return res.status(400).send({ status: "error", msg: "Service ID are required" })
+
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'service')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can delete service details.' })
+    }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const staffRole = decoded.role
-        if (!["Manager", "Admin"].includes(staffRole)) {
-            return res.status(403).send({ status: "error", msg: "Access denied. Unauthorized role." })
-        }
-
         const deletedService = await Service.findByIdAndDelete(id)
         if (!deletedService) return res.status(404).send({ status: "error", msg: "Service not found" })
 

@@ -1,6 +1,6 @@
 const express = require('express')
 const router = express.Router()
-const jwt = require('jsonwebtoken')
+const verifyToken = require('../../middleware/verifyToken')
 const nodemailer = require("nodemailer");
 const Hall = require('../../models/hall')
 
@@ -18,17 +18,14 @@ const transporter = nodemailer.createTransport({
 })
 
 // Book a hall
-router.post('/book', async (req, res) => {
-    const { token, email, hall_type, location, amount, duration, checkInDate, checkOutDate } = req.body
+router.post('/book', verifyToken, async (req, res) => {
+    const { email, hall_type, location, amount, duration, checkInDate, checkOutDate } = req.body
 
-    if (!token || !email || !hall_type || !amount || !duration || !checkInDate || !checkOutDate) {
+    if (!email || !hall_type || !amount || !duration || !checkInDate || !checkOutDate) {
         return res.status(400).send({ status: 'error', msg: 'All required fields must be provided' })
     }
 
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // Create a new hall request
         const newHallBooking = new Hall({
             guest: guest._id,
@@ -87,16 +84,8 @@ router.post('/book', async (req, res) => {
 
 
 // View all hall bookings for a guest
-router.post('/all', async (req, res) => {
-    const { token } = req.body
-    if (!token) {
-        return res.status(400).send({ status: 'error', msg: 'Token must be provided' })
-    }
-
+router.post('/all', verifyToken, async (req, res) => {
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // Fetch all hall bookings
         const bookings = await Hall.find({ guest: guest._id }).sort({ timestamp: -1 })
         if (bookings.length === 0) {
@@ -114,16 +103,13 @@ router.post('/all', async (req, res) => {
 
 
 // View a specific booking
-router.post('/view', async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'Token and booking ID are required' })
+router.post('/view', verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Booking ID is required' })
     }
 
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // fetch the hall booking
         const booking = await Hall.findById(id)
 
@@ -146,10 +132,10 @@ router.post('/view', async (req, res) => {
 
 
 // Update a booking
-router.post('/update', async (req, res) => {
-    const { token, id, ...updateFields } = req.body
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'Token and booking ID are required' })
+router.post('/update', verifyToken, async (req, res) => {
+    const { id, ...updateFields } = req.body
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Booking ID is required' })
     }
 
     try {
@@ -179,16 +165,13 @@ router.post('/update', async (req, res) => {
 
 
 // Cancel a booking
-router.post('/cancel', async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'Token and booking ID are required' })
+router.post('/cancel', verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Booking ID is required' })
     }
 
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // fetch the hall booking
         const booking = await Hall.findById(id)
 

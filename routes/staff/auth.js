@@ -3,99 +3,66 @@ const router = express.Router()
 
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
+const verifyToken = require('../../middleware/verifyToken')
 const Staff = require('../../models/staff')
 
-const { sendPasswordReset } = require("nodemailer")
+const { sendPasswordResetStaff } = require("../../utils/nodemailer")
 
-
-
-//endpoint to Register
-router.post('/register', async(req, res) =>{
-    const {fullname, email, phone_no, password, confirm_password, gender} = req.body
-    if(!fullname || !email || !phone_no || !password || !confirm_password)
-        return res.status(400).send({status: 'error', msg: 'All fields must be filled'})
-
-    // Start try block
-    try {
-        //Confirm passwords match
-        if (password !== confirm_password) {
-            return res.status(400).send({status: 'error', msg: 'Password mismatch'})
-        }
-
-        const check = await Staff.findOne({email: email})
-        if(check)
-            return res.status(200).send({status: 'ok', msg: 'Staff already exists'})
-
-
-        const hashedpassword = await bcrypt.hash(password, 10)
-
-
-        const staff = new Staff()
-        staff.fullname = fullname
-        staff.email = email
-        staff.phone_no = phone_no
-        staff.password = hashedpassword
-        staff.confirm_password = hashedpassword
-
-        //Only assigned gender if provided
-        if (gender) {
-            staff.gender = gender
-        }
-
-        await staff.save()
-
-        return res.status(200).send({status: 'ok', msg: 'Admin created successfully', staff})
-        
-    } catch (error) {
-        if(error.name == "JsonWebTokenError")
-            return res.status(400).send({status: 'error', msg: 'Invalid token'})
-    
-        return res.status(500).send({status: 'error', msg:'An error occured during signup'})
-    }
-})
 
 
 //endpoint to Login
-router.post('/login', async(req, res) => {
+router.post('/sign_in', async(req, res) => {
     const {email, phone_no, password} = req.body
     if ((!email && !phone_no) || !password)
         return res.status(400).send({status: 'error', msg: 'All fields must be filled'})
 
     try {
-        // get staff from database
-        const staff = await Staff.findOne({$or: [{ email: email || null }, { phone_no: phone_no || null }] }).lean()
-        if(!staff) {
-            return res.status(200).send({status: 'ok', msg:'No staff account found with the provided email or phone number'})
+        // Corrected Query Logic
+        const conditions = []
+        if (email) conditions.push({ email })
+        if (phone_no) conditions.push({ phone_no })
+
+        if (conditions.length === 0) {
+            return res.status(400).send({ status: 'error', msg: 'Email or phone number required' });
         }
 
-        // check if staff has been blocked
-        if (staff.is_blocked === true){
+        // Fetch staff using only valid conditions
+        let staff = await Staff.findOne({ $or: conditions }).lean()
+        if(!staff) 
+            return res.status(400).send({status: 'error', msg:'No staff account found with the provided email or phone number'})
+
+        // check if staff's account has been verified
+        /*
+        if (staff.is_verified) {
+            return res.status(400).send({ status: "error", msg: "Please verify your account first." })
+        }*/
+
+        // check if blocked
+        if (staff.is_blocked === true) {
             return res.status(400).send({ status: "error", msg: "account blocked" })
         }
-
-        // check if staff has been banned
+        
+        // check if banned
         if (staff.is_banned === true) {
             return res.status(400).send({ status: "error", msg: "account banned" })
         }
 
-        // check if staff has been deleted
+        // check if deleted
         if (staff.is_deleted === true) {
             return res.status(400).send({ status: "error", msg: "account deleted" })
         }
 
         //compare password
         const correct_password = await bcrypt.compare(password, staff.password)
-        if(!correct_password) {
-            return res.status(200).send({status: 'ok', msg:'Incorrect Password'})
-        }
+        if(!correct_password)
+            return res.status(400).send({status: 'error', msg:'Password is incorrect'})
 
         // create token
         const token = jwt.sign({
             _id: staff._id,
             email: staff.email,
-            phone_no: staff.phone_no,
-            role: "staff"
-        }, process.env.JWT_SECRET)
+            phone_no: staff.phone_no
+        }, process.env.JWT_SECRET, {expiresIn: '1h'})
 
         //update staff document to online
         staff = await Staff.findOneAndUpdate({_id: staff._id}, {is_online: true}, {new: true}).lean()
@@ -110,19 +77,15 @@ router.post('/login', async(req, res) => {
 })
 
 //endpoint to Logout
-router.post('/logout', async(req, res) => {
-    const {token} = req.body
-    if(!token)
-        return res.status(400).send({status: 'error', msg: 'Token is required'})
-
+router.post('/logout', verifyToken, async(req, res) => {
     try {
-        //verify token
-        const mStaff = jwt.verify(token, process.env.JWT_SECRET)
-        
-        const staff_id = mStaff._id
+        const staffId = req.user._id
 
-        await Staff.updateOne({_id: staff_id}, {is_online: false})
-        return res.status(200).send({status: 'ok', msg: 'Logout Successful'})
+        // Set staff offline
+        await Staff.findByIdAndUpdate(staffId, { is_online: false })
+    
+        return res.status(200).send({ status: 'ok', msg: 'Logout Successful' })
+
     } catch (error) {
         console.log(error)
         if(error == "JsonWebTokenError")
@@ -132,109 +95,101 @@ router.post('/logout', async(req, res) => {
     }
 })
 
-//endpoint to change password
-router.post('/change_password', async(req, res)=>{
-    const {token, old_password, new_password, confirm_new_password} = req.body;
+// endpoint to change password
+router.post('/change_password', verifyToken, async(req, res)=>{
+    const {old_password, new_password, confirm_new_password} = req.body
 
     //check if fields are passed correctly
-    if(!token || !old_password || !new_password || !confirm_new_password){
-        res.status(400).send({status: 'error', msg: 'all fields must be filled'})
+    if(!old_password || !new_password || !confirm_new_password){
+       return res.status(400).send({status: 'error', msg: 'all fields must be filled'})
     }
-    
+
     // get staff document and change password
     try {
-        const staff = jwt.verify(token, process.env.JWT_SECRET)
-        
-        let Mstaff = await Staff.findOne({_id: staff._id}, {password : 1}).lean()
-        
-        const check = await bcrypt.compare(old_password, Mstaff.password)
-        
-        if(check){
-            if(new_password !== confirm_new_password)
-                return res.status(400).send({status:'error', msg:'password missmatch'})
-            
-            //Prevent reusing old password
-            const isSamePassword = await bcrypt.compare(new_password, Madmin.password)
-            if(isSamePassword){
-                return res.status(400).send({status:'error', msg:'New password must be different from the old password'})
-            }
-            
-            const updatepassword = await bcrypt.hash(confirm_new_password, 10)
-            
-            Mstaff = await Staff.findOneAndUpdate({_id: staff._id}, {password: updatepassword}).lean()
-            
-            return res.status(200).send({status: 'successful', msg: 'Password successfully changed'})
+        const staff =  await Staff.findById(req.user._id).select("password")
+
+        if (!staff) {
+            return res.status(400).send({status:'error', msg:'Staff not found'})
         }
-        
-        return res.status(400).send({status: 'error', msg: 'Old_password not correct'})
+
+        //Compare old password
+        const check = await bcrypt.compare(old_password, staff.password)
+        if(!check){
+            return res.status(400).send({status:'error', msg:'old password is incorrect'})
+        }
+
+        //Prevent reusing old password
+        const isSamePassword = await bcrypt.compare(new_password, staff.password)
+        if(isSamePassword){
+            return res.status(400).send({status:'error', msg:'New password must be different from the old password'})
+        }
+
+        //Confirm new passwords match
+        if (new_password !== confirm_new_password) {
+            return res.status(400).send({status: 'error', msg: 'Password mismatch'})
+        }
+
+        //Hash new password and update
+        const updatePassword = await bcrypt.hash(confirm_new_password, 10)
+        await Staff.findByIdAndUpdate(req.user._id, {password: updatePassword})
+
+        return res.status(200).send({status: 'successful', msg: 'Password successfully changed'})
     } catch (error) {
         if(error.name === 'JsonWebTokenError'){
-            console.log(error)
-            return res.status(401).send({status: 'error', msg: 'Token Verification Failed'})}
-  
-          return res.status(500).send({status: 'error', msg: 'An error occured', error: error.message})
-      }
-    
+        console.log(error)
+        return res.status(401).send({status: 'error', msg: 'Token Verification Failed', error: error.message})
+}
+      return res.status(500).send({status: 'error', msg: 'An error occured while changing password', error: error.message})}
 })
 
-// endpoint for staff to reset their password
+
+// endpoint for a staff to reset their password
 router.post('/forgot_password', async (req, res) => {
-    const {email, phone_no} = req.body;
-  
-    if(!email && !phone_no){
-        return res.status(400).send({status: 'error', msg: 'All fields must be entered'});
+    const { email, phone_no } = req.body
+
+    if (!email && !phone_no) {
+        return res.status(400).send({ status: 'error', msg: 'Email or phone number is required' });
     }
-  
+
     try {
-        // Add Regex for email check
-        // const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        // if(!regex.test(String(email).toLocaleLowerCase())){
-        //     return res.status(400).json({status: 'error', msg: 'Please enter a valid email'});
-        // }
-    
-        // check if the staff exists
-        const staff = await Staff.findOne({$or: [{ email: email || null }, { phone_no: phone_no || null }] }).lean()
-    
-        if(!staff){
-            return res.status(400).send({status: 'error', msg: 'No staff account found with the provided email or phone'});
+        // Find staff by email or phone
+        const staff = await Staff.findOne({
+            $or: [{ email: email || null }, { phone_no: phone_no || null }]}).lean()
+
+        if (!staff) {
+            return res.status(400).send({ status: 'error', msg: 'No staff account found with the provided email or phone' });
         }
-    
-        // create resetPasswordCode
-        /**
-         * Get the current timestamp and use to verify whether the
-         * staff can still use this link to reset their password
-        */
-    
-        const timestamp = Date.now();
-        const resetPasswordCode = jwt.sign({ id: staff._id }, process.env.JWT_SECRET, { expiresIn: '10m' });
-  
-        //send email to user to reset password
-        // send email to user to reset password
-        try {
-            await sendPasswordReset(staff.email || staff.phone_no, staff.fullname, resetPasswordCode);
-            return res.status(200).json({ status: 'ok', msg: 'Password reset email sent, please check your email' });
-        } catch (error) {
-            console.error(error);
-            return res.status(500).json({ status: 'error', msg: 'Email not sent', error: error.name });
-        }
-  
-    } catch(e) {
-        console.error(e);
-        return res.status(500).send({status: "error", msg: "some error occured", error: e.name});
-    } 
-  });
-  
-  // endpoint to reset password webpage
-  router.get("/reset_password/:resetPasswordCode", async (req, res) => {
-    const resetPasswordCode = req.params.resetPasswordCode;
+
+        // Create reset token (expires in 10 min)
+        const resetToken = jwt.sign(
+            { _id: staff._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '10m' }
+        );
+
+        // Send email to staff email only
+        await sendPasswordResetStaff(staff.email  || staff.phone_no, staff.fullname, resetToken);
+
+        return res.status(200).send({ status: 'ok', msg: 'Password reset link sent. Please check your email or phone.' })
+
+    } catch (error) {
+        console.error(error)
+        return res.status(500).send({ status: 'error', msg: 'Error sending password reset link', error: error.message })
+    }
+})
+
+
+// endpoint to reset password webpage
+router.get("/reset_password/:resetPasswordCode", async (req, res) => {
+const resetPasswordCode = req.params.resetPasswordCode
     try {
-      const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET);
+      const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET)
   
       const sendTime = data.timestamp;
       // check if more than 5 minutes has elapsed
-      const timestamp = Date.now();
+      const timestamp = Date.now()
       if (timestamp > sendTime) {
-        console.log("handle the expiration of the request code");
+        console.log("handle the expiration of the request code")
       }
   
       return res.send(`<!DOCTYPE html>
@@ -313,21 +268,22 @@ router.post('/forgot_password', async (req, res) => {
           </head>
           <body>    
                   <h2 style="display: flex; align-items: center; justify-content: center; margin-bottom: 0;">Recover Account</h2>
-                  <h6 style="display: flex; align-items: center; justify-content: center; font-weight: 200;">Enter the new phone number
+                  <h6 style="display: flex; align-items: center; justify-content: center; font-weight: 200;">Enter the new password
                       you want to use in recovering your account</h6>    
           
-              <form action="http://localhost:3000/admin_profile/reset_password" method="post">
+              <form action="http://localhost:1000/staff_auth/reset_password" method="post">
                   <div class="imgcontainer">
                   </div>
                   <div class="container">
-                      <input type="text" placeholder="Enter new password" name="new_password" required style="border-radius: 5px;" maxlength="11">
-                      <input type='text' placeholder="nil" name='resetPasswordCode' value=${resetPasswordCode} style="visibility: hidden"><br>
-                      <button type="submit" style="border-radius: 5px; background-color: #1aa803;">Submit</button>            
-                  </div>        
-              </form>
+                    <input type="password" placeholder="Enter new password" name="new_password" required style="border-radius: 5px" minlength="11">
+                    <input type="password" placeholder="Confirm new password" name="confirm_password" required style="border-radius: 5px" minlength="11">
+                    <input type="hidden" name="resetPasswordCode" value="${resetPasswordCode}"><br>
+                    <button type="submit" style="border-radius: 5px; background-color: #1aa803">Submit</button>
+                  </div>
+                </form>
           </body>
   
-      </html>`);
+      </html>`)
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
           // Handle general JWT errors
@@ -342,30 +298,46 @@ router.post('/forgot_password', async (req, res) => {
           return res.status(401).send(`</div>
           <h1>Password Reset</h1>
           <p>Token expired</p>
-          </div>`)
+          </div>`);
         } 
-      console.log(e)
+      console.log(e);
       return res.status(200).send(`</div>
       <h1>Password Reset</h1>
       <p>An error occured!!! ${e.message}</p>
       </div>`)
     }
   })
-
-
-// endpoint to reset password
-router.post("/reset_password", async (req, res) => {
-    const { new_password, resetPasswordCode } = req.body
   
-    if (!new_password || !resetPasswordCode) {
+  // endpoint to reset password
+  router.post("/reset_password", async (req, res) => {
+    const { new_password, confirm_password, resetPasswordCode } = req.body
+  
+    if (!new_password || !confirm_password || !resetPasswordCode) {
       return res
         .status(400)
         .json({ status: "error", msg: "All fields must be entered" })
+    }
+
+    // Check password equality
+    if (new_password !== confirm_password) {
+    return res
+        .status(400)
+        .json({ status: "error", msg: "Passwords do not match" });
+    }
+
+    // (Optional) check minimum length / complexity on the server side too
+    if (new_password.length < 11) {
+    return res
+        .status(400)
+        .json({ status: "error", msg: "Password must be at least 11 characters" });
     }
   
     try {
       const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET)
       const hashedPassword = await bcrypt.hash(new_password, 10)
+
+      console.log("Resetting password for user ID:", data._id)
+
   
       // update the phone_no field
       await Staff.updateOne(
@@ -401,27 +373,19 @@ router.post("/reset_password", async (req, res) => {
       return res.status(200).send(`</div>
       <h1>Reset Password</h1>
       <p>An error occured!!! ${e.message}</p>
-      </div>`);
+      </div>`)
     }
   })
 
-
 //endpoint to delete account
-router.post('/delete_account', async(req, res) => {
-    const {token} = req.body
-    if(!token)
-        return res.status(400).send({status: 'error', msg: 'Token is required'})
-
+router.post('/delete', verifyToken, async(req, res) => {
     try {
-        //verify token
-        const staff = jwt.verify(token, process.env.JWT_SECRET)
-
         //Find the staff and delete the account
-        const Dstaff = await Staff.findByIdAndDelete(staff._id)
+        const deleted = await Staff.findByIdAndDelete(req.user._id)
 
-            //Check if the staff exists and was deleted
-        if(!Dstaff)
-            return res.status(400).send({status: 'error', msg: 'No staff Found'})
+        //Check if the staff exists and was deleted
+        if(!deleted)
+            return res.status(400).send({status: 'error', msg: 'No staff found'})
 
         return res.status(200).send({status: 'ok', msg: 'Account Successfully deleted'})
 
@@ -435,6 +399,5 @@ router.post('/delete_account', async(req, res) => {
     }
 
 })
-
 
 module.exports = router

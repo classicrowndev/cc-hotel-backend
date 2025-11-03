@@ -4,76 +4,79 @@ const router = express.Router()
 const dotenv = require('dotenv')
 dotenv.config()
 
-const jwt = require('jsonwebtoken')
-const nodemailer = require("nodemailer");
 const Event = require('../../models/event')
+const verifyToken = require('../../middleware/verifyToken')
+const { sendGuestEventMail, sendGuestEventCancellationMail } = require("../../utils/nodemailer")
 
 
-// Nodemailer transporter
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
-})
 
 // Reserve or register for an event
-router.post('/reserve', async (req, res) => {
-    const { token, name, description, price, date, location, image } = req.body
-
-    if (!token || !name || !price || !date || !location) {
-        return res.status(400).send({ status: 'error', msg: 'Token and all required fields must be provided' })
-    }
-
+router.post('/reserve', verifyToken, async (req, res) => {
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
+        const { hallId, description, date, duration } = req.body
+        if (!hallId || !date) {
+            return res.status(400).send({ status: 'error', msg: 'Hall ID and date must be provided' })
+        }
 
+        const guestId = req.user.id // from verifyToken middleware
+
+        // Find guest details
+        const guest = await Guest.findById(guestId)
+        if (!guest) {
+            return res.status(404).send({ status: 'error', msg: 'Guest not found' })
+        }
+
+        // Find the hall being booked
+        const hall = await Hall.findById(hallId)
+        if (!hall){
+            return res.status(404).send({ status: 'error', msg: 'Hall not found' })
+        }
+    
+        // Check if hall is available
+        if (hall.status !== "Available") {
+            return res.status(404).send({ status: 'error', msg: 'This hall is not available for booking at the moment' })
+        }
+
+        // Check if that hall is available for that exact date  or already booked for that date
+        const requestedDate = new Date(date)
+        const conflict = await Event.findOne({
+            hall: hall._id,
+            date: {
+                $eq: requestedDate
+            },
+            status: { $in: ['Booked', 'In Progress'] }
+        })
+
+        if (conflict) {
+            return res.status(400).send({ status: 'error', msg: 'Hall already booked for that date' })
+        }
+    
         // Book for a new event
-        const newEventBooking = new Event({
-            name,
-            description,
-            price,
-            date,
-            location,
+        const newBooking = new Event({
+            guest: guest._id,
+            hall: hall._id,
+            hall_name: hall.name,
+            description: description || `Booking for ${hall.name}`,
+            amount: hall.amount,
+            date: requestedDate,
+            location: hall.location,
             availablility: true,
             status: "Booked",
             image,
             timestamp: Date.now(),
         })
 
-        await newEventBooking.save()
+        await newBooking.save()
+
+        // Update the hall 's status to "Booked"
+        hall.status = "Booked"
 
         // Send confirmation email
-        const mailOptions = {
-            from: `"Hotel Events" <${process.env.EMAIL_USER}>`,
-            to: guest.email,
-            subject: "Event Reservation Confirmation",
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Event Reservation Confirmed 🎉</h2>
-                    <p>Dear Guest,</p>
-                    <p>Your reservation for <b>${name}</b> has been successfully confirmed.</p>
-                    <ul>
-                        <li><b>Date:</b> ${new Date(date).toDateString()}</li>
-                        <li><b>Location:</b> ${location}</li>
-                        <li><b>Price:</b> ₦${price}</li>
-                    </ul>
-                    <p>Status: <b>Booked</b></p>
-                    <p>We look forward to seeing you at the event!</p>
-                    <br/>
-                    <p>Warm regards,<br/>Hotel Events Team</p>
-                </div>
-            `,
-        }
+        await sendGuestEventMail( guest.email, guest.fullname, hall.name, hall.location, hall.amount, hall.hall_type,
+            date)
 
-        await transporter.sendMail(mailOptions)
-
-        return res.status(201).send({
-            status: 'success',
-            msg: 'Event reserved successfully, confirmation email sent',
-            booking: newEventBooking,
+        return res.status(201).send({status: 'success', msg: 'Hall reserved successfully and confirmation email sent',
+            booking: newBooking,
         })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
@@ -85,17 +88,8 @@ router.post('/reserve', async (req, res) => {
 
 
 // View all available events
-router.post('/all', async (req, res) => {
-    const { token } = req.body
-
-    if (!token) {
-        return res.status(400).send({ status: 'error', msg: 'Token must be provided' })
-    }
-
+router.post('/all', verifyToken, async (req, res) => {
     try {
-        // verify the guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         // fetch all available events
         const events = await Event.find({ availablility: true }).sort({ timestamp: -1 })
 
@@ -114,17 +108,14 @@ router.post('/all', async (req, res) => {
 
 
 // View details of a single event
-router.post('/view', async (req, res) => {
-    const { token, id } = req.body
+router.post('/view', verifyToken, async (req, res) => {
+    const { id } = req.body
 
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'Token and event ID are required' })
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Event ID is required' })
     }
 
     try {
-        // verify the guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         // fetch the event
         const event = await Event.findById(id)
         if (!event) {
@@ -142,17 +133,14 @@ router.post('/view', async (req, res) => {
 
 
 // Filter events by status
-router.post('/filter', async (req, res) => {
-    const { token, status } = req.body
+router.post('/filter', verifyToken, async (req, res) => {
+    const { status } = req.body
 
-    if (!token || !status) {
-        return res.status(400).send({ status: 'error', msg: 'Token and status are required' })
+    if (!status) {
+        return res.status(400).send({ status: 'error', msg: 'Status is required' })
     }
 
     try {
-        // verify the guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         // fetch the events' status
         const events = await Event.find({ status }).sort({ timestamp: -1 })
 
@@ -171,17 +159,14 @@ router.post('/filter', async (req, res) => {
 
 
 // Search events by name
-router.post('/search', async (req, res) => {
-    const { token, keyword } = req.body
+router.post('/search', verifyToken, async (req, res) => {
+    const { keyword } = req.body
 
-    if (!token || !keyword) {
+    if (!keyword) {
         return res.status(400).send({ status: 'error', msg: 'Token and keyword are required' })
     }
 
     try {
-        // verify the guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         // fetch the events
         const events = await Event.find({
             name: { $regex: keyword, $options: 'i' },
@@ -203,17 +188,14 @@ router.post('/search', async (req, res) => {
 
 
 // Cancel reserved event
-router.post('/cancel', async (req, res) => {
-    const { token, id } = req.body
+router.post('/cancel', verifyToken, async (req, res) => {
+    const { id } = req.body
 
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'Token and event ID are required' })
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Event ID are required' })
     }
 
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // fetch the event
         const event = await Event.findById(id)
         if (!event) {
@@ -224,23 +206,7 @@ router.post('/cancel', async (req, res) => {
         await event.save()
 
         // Send cancellation email
-        const mailOptions = {
-            from: `"Hotel Events" <${process.env.EMAIL_USER}>`,
-            to: guest.email,
-            subject: "Event Reservation Cancelled",
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Event Reservation Cancelled ❌</h2>
-                    <p>Dear Guest,</p>
-                    <p>Your reservation for <b>${event.name}</b> scheduled on <b>${new Date(event.date).toDateString()}</b> has been successfully cancelled.</p>
-                    <p>If this was a mistake, please rebook anytime through our events page.</p>
-                    <br/>
-                    <p>Warm regards,<br/>Hotel Events Team</p>
-                </div>
-            `,
-        }
-
-        await transporter.sendMail(mailOptions)
+        await sendGuestEventCancellationMail( guest.email, guest.fullname, event.name, event.date)
 
         return res.status(200).send({ status: 'success', msg: 'Event cancelled successfully, confirmation email sent' })
     } catch (e) {

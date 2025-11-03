@@ -4,7 +4,8 @@ const roomSchema = new mongoose.Schema({
     name: { type: String, required: true },
     type: {
         type: String,
-        enum: ["Standard suite", "Regular suite", "Deluxe suite", "Platinum suite", "Premium suite"],
+        enum: ["Standard Suite", "Regular Suite", "Deluxe Suite",
+            "Platinum Suite", "Premium Suite", "Luxury Suite", "Executive Suite"],
         required: true
     },
     price: { type: Number, required: true },
@@ -15,7 +16,7 @@ const roomSchema = new mongoose.Schema({
         default: "available"
     },
     amenities: {
-        type: String,
+        type: [String],
         enum: ["5G Wi-Fi", "Flat-Screen TV", "Water Dispenser",
             "Luxury Bathroom", "Air Conditioner", "Kitchen"],
         required: true

@@ -1,8 +1,17 @@
 const express = require('express')
 const router = express.Router()
 
-const jwt = require('jsonwebtoken')
+const verifyToken = require('../../middleware/verifyToken')
 const Dish = require('../../models/dish')
+
+
+//Helper to check role access
+const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
+    if (!allowedRoles.includes(user.role))
+        return false
+    if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
+        return false
+}
 
 
 // -----------------------------
@@ -11,20 +20,17 @@ const Dish = require('../../models/dish')
 
 
 // Add new dish (Owner/Admin only)
-router.post('/add', async (req, res) => {
-    const { token, name, category, amount_per_portion, status, quantity, image } = req.body
-    if (!token || !name || !category || amount_per_portion === undefined) {
-        return res.status(400).send({ status: 'error', msg: 'Token, name, category and amount_per_portion are required' })
+router.post('/add', verifyToken, async (req, res) => {
+    const { name, category, amount_per_portion, status, quantity, image } = req.body
+    if (!name || !category || amount_per_portion === undefined) {
+        return res.status(400).send({ status: 'error', msg: 'Name, category and amount_per_portion are required' })
+    }
+
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'dish')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add new dish.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ['Owner', 'Admin']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add dishes.' })
-        }
-
         const dish = new Dish({
             name,
             category,
@@ -46,23 +52,12 @@ router.post('/add', async (req, res) => {
 
 
 // Staff can only view dishes or take orders
-router.post('/all', async (req, res) => {
-    const { token } = req.body
-    if (!token) return res.status(400).send({ status: 'error', msg: 'Token must be provided' })
-
+router.post('/all', verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'dish')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+    
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        // Staff must be assigned to "dish" task
-        if (decoded.role === 'Staff' && decoded.task !== 'dish') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to dish operations' })
-        }
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-        }
-
         const dishes = await Dish.find().sort({ date_added: -1 })
         if (!dishes.length) {
             return res.status(200).send({ status: 'ok', msg: 'No dishes found' })
@@ -79,23 +74,17 @@ router.post('/all', async (req, res) => {
 
 
 // View single dish (Staff can view only if assigned)
-router.post('/view', async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'Token and dish id required' })
+router.post('/view', verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Dish ID is required' })
+    }
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'dish')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        if (decoded.role === 'Staff' && decoded.task !== 'dish') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to dish operations' })
-        }
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-        }
-
         const dish = await Dish.findById(id)
         if (!dish) return res.status(404).send({ status: 'error', msg: 'Dish not found' })
 
@@ -110,20 +99,18 @@ router.post('/view', async (req, res) => {
 
 
 // Update dish (Owner/Admin only)
-router.post('/update', async (req, res) => {
-    const { token, id, ...updateData } = req.body
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'Token and dish id required' })
+router.post('/update', verifyToken, async (req, res) => {
+    const { id, ...updateData } = req.body
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Dish ID is required' })
     }
 
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'dish')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can update dish details.' })
+    }
+
+
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ['Owner', 'Admin']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Only Owner/Admin can update dishes.' })
-        }
-
         updateData.timestamp = Date.now()
         const updatedDish = await Dish.findByIdAndUpdate(id, updateData, { new: true })
         if (!updatedDish) {
@@ -141,20 +128,18 @@ router.post('/update', async (req, res) => {
 
 
 // Delete dish (Owner/Admin only)
-router.post('/delete', async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id) {
-        return res.status(400).send({ status: 'error', msg: 'Token and dish id required' })
+router.post('/delete', verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Dish ID is required' })
     }
 
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'dish')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can delete dish.' })
+    }
+
+
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ['Owner', 'Admin']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Only Owner/Admin can delete dishes.' })
-        }
-
         const deleted = await Dish.findByIdAndDelete(id)
         if (!deleted) {
             return res.status(404).send({ status: 'error', msg: 'Dish not found or already deleted' })
@@ -172,25 +157,19 @@ router.post('/delete', async (req, res) => {
 
 // Update dish status (Owner/Admin or Assigned Staff)
 router.post('/update_status', async (req, res) => {
-    const { token, id, status } = req.body
-    if (!token || !id || !status) {
-        return res.status(400).send({ status: 'error', msg: 'Token, dish id and status required' })
+    const { id, status } = req.body
+    if (!id || !status) {
+        return res.status(400).send({ status: 'error', msg: 'Dish ID and status are required' })
     }
 
     if (!['Available', 'Unavailable'].includes(status))
         return res.status(400).send({ status: 'error', msg: 'Invalid status' })
 
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'dish')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (decoded.role === 'Staff' && decoded.task !== 'dish') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to dish operations' })
-        }
-
-        if (!['Owner', 'Admin', 'Staff'].includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role' })
-        }
-
         const updated = await Dish.findByIdAndUpdate(id, { status, timestamp: Date.now() }, { new: true })
         if (!updated) {
             return res.status(404).send({ status: 'error', msg: 'Dish not found' })
@@ -206,24 +185,12 @@ router.post('/update_status', async (req, res) => {
 })
 
 // Overview (Staff can view if assigned, otherwise Owner/Admin)
-router.post('/overview', async (req, res) => {
-    const { token } = req.body
-    if (!token) {
-        return res.status(400).send({ status: 'error', msg: 'Token must be provided' })
+router.post('/overview', verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'dish')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (decoded.role === 'Staff' && decoded.task !== 'dish') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to dish operations' })
-        }
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-        }
-
         const total = await Dish.countDocuments()
         const available = await Dish.countDocuments({ status: 'Available' })
         const unavailable = await Dish.countDocuments({ status: 'Unavailable' })
@@ -240,24 +207,17 @@ router.post('/overview', async (req, res) => {
 
 
 //Search (Staff can view if assigned, otherwise Owner/Admin)
-router.post('/search', async (req, res) => {
-    const { token, keyword } = req.body
-    if (!token || !keyword) {
-        return res.status(400).send({ status: 'error', msg: 'Token and keyword required' })
+router.post('/search', verifyToken, async (req, res) => {
+    const { keyword } = req.body
+    if (!keyword) {
+        return res.status(400).send({ status: 'error', msg: 'Keyword is required' })
+    }
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'dish')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (decoded.role === 'Staff' && decoded.task !== 'dish') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to dish operations' })
-        }
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-        }
-
         const dishes = await Dish.find({
             $or: [{ name: { $regex: keyword, $options: 'i' } }, { category: { $regex: keyword, $options: 'i' } }]
         }).sort({ date_added: -1 })

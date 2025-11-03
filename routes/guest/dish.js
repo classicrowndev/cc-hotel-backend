@@ -1,21 +1,12 @@
 const express = require('express')
 const router = express.Router()
-const jwt = require('jsonwebtoken')
+const verifyToken = require('../../middleware/verifyToken')
 const Dish = require("../../models/dish.js");
 
 
 // View all available dishes
-router.post("/all", async (req, res) => {
-    const {token} = req.body
-
-    if (!token) {
-        return res.status(400).send({status: 'error', msg: 'Token must be provided'})
-    }
-
+router.post("/all", verifyToken, async (req, res) => {
     try {
-        // verify the guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         // Fetch all available dishes
         const dishes = await Dish.find({ status: "Available" }).sort({ date_added: -1})
         if (!dishes || dishes.length === 0) {
@@ -33,17 +24,14 @@ router.post("/all", async (req, res) => {
 
 
 // View dishes by category
-router.post("/category", async (req, res) => {
-    const { token, category} = req.body
+router.post("/category", verifyToken, async (req, res) => {
+    const {category} = req.body
 
-    if (!token || !category) {
-        return res.status(400).send({status:'error', msg: 'All fields are required'})
+    if (!category) {
+        return res.status(400).send({status:'error', msg: 'Category is required'})
     }
 
     try {
-        // verify guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         // Fetch all dishes by category
         const dishes = await Dish.find({category, status: 'Available'}).sort({ date_added: -1})
         if (!dishes || dishes.length === 0) {
@@ -61,17 +49,14 @@ router.post("/category", async (req, res) => {
 
 
 // View single dish by ID
-router.post("/view", async (req, res) => {
-    const { token, id} = req.body
+router.post("/view", verifyToken, async (req, res) => {
+    const { id} = req.body
 
-    if (!token || !id) {
-        return res.status(400).send({status:'error', msg: 'All fields are required'})
+    if (!id) {
+        return res.status(400).send({status:'error', msg: 'Dish ID is required'})
     }
 
     try {
-        // verify guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         // Find the dish
         const dish = await Dish.findById(id)
         if (!dish) {
@@ -89,17 +74,14 @@ router.post("/view", async (req, res) => {
 
 
 // Search for dishes by name
-router.post("/search", async (req, res) => {
-    const { token, name} = req.body
+router.post("/search", verifyToken, async (req, res) => {
+    const { name} = req.body
 
-    if (!token || !name) {
-        return res.status(400).send({status:'error', msg: 'All fields are required'})
+    if (!name) {
+        return res.status(400).send({status:'error', msg: 'Name is required'})
     }
 
     try {
-        // verify guest's token
-        jwt.verify(token, process.env.JWT_SECRET)
-
         // Find the dishes
         const dishes = await Dish.find({
             name: { $regex: name, $options: "i" },

@@ -1,10 +1,18 @@
 const express = require('express')
 const router = express.Router()
 
-const jwt = require("jsonwebtoken")
+const verifyToken = require('../../middleware/verifyToken') // your middleware
 const Room = require("../../models/room")
 
+//Helper to check role access
+const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
+    if (!allowedRoles.includes(user.role))
+        return false
+    if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
+        return false
 
+    return true // Explicitly allow if no condition blocks access
+}
 
 // ------------------------------------
 // Room Management - Staff Route
@@ -12,20 +20,14 @@ const Room = require("../../models/room")
 
 
 // Add a new room (Only Owner/Admin)
-router.post("/add", async (req, res) => {
-    const { token, name, type, price, capacity, description, amenities, availability } = req.body
+router.post("/add", verifyToken, async (req, res) => {
+    const { name, type, price, capacity, description, amenities, availability } = req.body
 
-    if (!token) {
-        return res.status(400).send({ status: "error", msg: "Token must be provided" })
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'room')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add rooms.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (!["Owner", "Admin"].includes(decoded.role)) {
-            return res.status(403).send({ status: "error", msg: "Access denied. Only Owner/Admin can add rooms." })
-        }
-
         const newRoom = new Room({
             name,
             type,
@@ -50,20 +52,17 @@ router.post("/add", async (req, res) => {
 
 
 // Update room details (Only Owner/Admin)
-router.post("/update", async (req, res) => {
-    const { token, id, ...updateData } = req.body
-
-    if (!token || !id) {
-        return res.status(400).send({ status: "error", msg: "Token and room ID are required" })
+router.post("/update", verifyToken, async (req, res) => {
+    const { id, ...updateData } = req.body
+    if (!id) {
+        return res.status(400).send({ status: "error", msg: "Room ID are required" })
     }
 
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'room')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+    
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (!["Owner", "Admin"].includes(decoded.role)) {
-            return res.status(403).send({ status: "error", msg: "Access denied. Only Owner/Admin can update rooms." })
-        }
-
         updateData.timestamp = Date.now()
         const updatedRoom = await Room.findByIdAndUpdate(id, updateData, { new: true })
         if (!updatedRoom) {
@@ -81,23 +80,14 @@ router.post("/update", async (req, res) => {
 
 
 // View all rooms (Owner/Admin or Assigned Staff)
-router.post("/all", async (req, res) => {
-    const { token } = req.body
-
-    if (!token) {
-        return res.status(400).send({ status: "error", msg: "Token must be provided" })
+router.post("/all", verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'room')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ["Owner", "Admin", "Staff"]
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: "error", msg: "Unauthorized role." })
-        }
-
         // Staff must be assigned to "room" task
-        if (decoded.role === "Staff" && decoded.task !== "room") {
+        if (req.user.role === "Staff" && req.user.task !== "room") {
             return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to room operations." })
         }
 
@@ -117,22 +107,18 @@ router.post("/all", async (req, res) => {
 
 
 // View a specific room (Owner/Admin or Assigned Staff)
-router.post("/view", async (req, res) => {
-    const { token, id } = req.body
+router.post("/view", verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id) {
+        return res.status(400).send({ status: "error", msg: "Room ID is required" })
+    }
 
-    if (!token || !id) {
-        return res.status(400).send({ status: "error", msg: "Token and room ID are required" })
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'room')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ["Owner", "Admin", "Staff"]
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: "error", msg: "Unauthorized role." })
-    }
-
-        if (decoded.role === "Staff" && decoded.task !== "room") {
+        if (req.user.role === "Staff" && req.user.task !== "room") {
             return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to room operations." })
         }
 
@@ -151,20 +137,17 @@ router.post("/view", async (req, res) => {
 
 
 // Delete a room (Only Owner/Admin)
-router.post("/delete", async (req, res) => {
-    const { token, id } = req.body
+router.post("/delete", verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id) {
+        return res.status(400).send({ status: "error", msg: "Room ID is required" })
+    }
 
-    if (!token || !id) {
-        return res.status(400).send({ status: "error", msg: "Token and room ID are required" })
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'room')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can delete room.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        if (!["Owner", "Admin"].includes(decoded.role)) {
-            return res.status(403).send({ status: "error", msg: "Access denied. Only Owner/Admin can delete rooms." })
-        }
-
         const deletedRoom = await Room.findByIdAndDelete(id)
         if (!deletedRoom) {
             return res.status(404).send({ status: "error", msg: "Room not found or already deleted" })

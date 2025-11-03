@@ -1,0 +1,196 @@
+const express = require('express')
+const router = express.Router()
+
+const dotenv = require('dotenv')
+dotenv.config()
+
+const bcrypt = require('bcryptjs')
+const verifyToken = require('../../middleware/verifyToken')
+const Staff = require('../../models/staff')
+
+
+// Admin creates staff account
+router.post('/create_staff', verifyToken, async (req, res) => {
+    try {
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only admin can create staff accounts.' })
+        }
+
+        const { fullname, email, password, phone_no } = req.body
+
+        if (!fullname || !email || !password || !phone_no) {
+            return res.status(400).send({ status: 'error', msg: 'All fields are required' })
+        }
+
+        const existingStaff = await Staff.findOne({ email })
+        if (existingStaff) {
+            return res.status(400).send({ status: 'error', msg: 'Email already exists' })
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10)
+
+        const newStaff = new Staff({
+            fullname,
+            email,
+            password: hashedPassword,
+            phone_no,
+            role: 'staff' // Admin can only create staff
+        })
+
+        await newStaff.save()
+
+        return res.status(201).send({
+            status: 'ok',
+            msg: 'Staff account created successfully',
+            data: {id: newStaff._id, fullname: newStaff.fullname, email: newStaff.email, phone_no: newStaff.phone_no,
+                role: newStaff.role
+            }
+        })
+    } catch (error) {
+        console.error('Error creating staff:', error)
+        return res.status(500).send({ status: 'error', msg: 'Server error while creating staff' })
+    }
+})
+
+
+// View all staff
+router.get('/view_staffs', verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only admin can view staff accounts.' })
+        }
+
+        const staffs = await Staff.find({ role: 'staff' }).select('-password').lean()
+        if (staffs.length === 0) {
+            return res.status(200).send({ status: 'ok', msg: 'No staff found', staffs: [] })
+        }
+
+        res.status(200).send({ status: 'ok', staffs })
+    } catch (e) {
+        console.error(e)
+        res.status(500).send({ status: 'error', msg: 'Failed to fetch staff accounts' })
+    }
+})
+
+
+// View a specific staff
+router.post('/view_staff', verifyToken, async (req, res) => {
+    const { id } = req.body
+
+    if (!id) {
+        return res.status(400).send({ status: 'error', msg: 'Staff ID is required' })
+    }
+
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only admin can view details.' })
+        }
+
+        const staff = await Staff.findOne({ _id: id, role: 'staff' }).select('-password').lean()
+        if (!staff) {
+            return res.status(404).send({ status: 'error', msg: 'Staff not found' })
+        }
+
+        return res.status(200).send({ status: 'ok', staff })
+    } catch (e) {
+        console.error(e)
+        return res.status(500).send({ status: 'error', msg: 'Error fetching staff details' })
+    }
+})
+
+
+// Delete staff
+router.post('/delete_staff', verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only admin can delete staff accounts.' })
+        }
+
+        const { id } = req.body
+        if (!id) {
+            return res.status(400).send({ status: 'error', msg: 'Staff ID is required' })
+        }
+
+        const deletedStaff = await Staff.findOneAndDelete({ _id: id, role: 'staff' })
+        if (!deletedStaff) {
+            return res.status(404).send({ status: 'error', msg: 'Staff not found' })
+        }
+
+        res.status(200).send({ status: 'ok', msg: 'Staff deleted successfully' })
+    } catch (error) {
+        console.error(error)
+        res.status(500).send({ status: 'error', msg: 'Failed to delete staff' })
+    }
+})
+
+
+// Block staff
+router.post('/block_staff', verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only admin can block staff accounts.' })
+        }
+
+        const { id } = req.body
+        if (!id) {
+            return res.status(400).send({ status: 'error', msg: 'Staff ID is required' })
+        }
+
+        const blockedStaff = await Staff.findOneAndUpdate({ _id: id, role: 'staff' }, { is_blocked: true }, { new: true })
+        if (!blockedStaff) {
+            return res.status(404).send({ status: 'error', msg: 'Staff not found' })
+        }
+
+        res.status(200).send({ status: 'ok', msg: 'Staff blocked successfully', blockedStaff })
+    } catch (error) {
+        console.error(error)
+        res.status(500).send({ status: 'error', msg: 'Failed to block staff' })
+    }
+})
+
+
+// Unblock staff
+router.post('/unblock_staff', verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only admin can unblock staff accounts.' })
+        }
+
+        const { id } = req.body
+        if (!id) {
+            return res.status(400).send({ status: 'error', msg: 'Staff ID is required' })
+        }
+
+        const unblockedStaff = await Staff.findOneAndUpdate({ _id: id, role: 'staff' }, { is_blocked: false }, { new: true })
+
+        if (!unblockedStaff) {
+            return res.status(404).send({ status: 'error', msg: 'Staff not found' })
+        }
+
+        res.status(200).send({ status: 'ok', msg: 'Staff unblocked successfully', unblockedStaff })
+    } catch (error) {
+        console.error(error)
+        res.status(500).send({ status: 'error', msg: 'Failed to unblock staff' })
+    }
+})
+
+
+// View all blocked staff
+router.get('/blocked_staffs', verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only admin can view blocked staff accounts.' })
+        }
+
+        const blockedStaffs = await Staff.find({ role: 'staff', is_blocked: true }).select('-password').lean()
+        if (blockedStaffs.length === 0) {
+            return res.status(200).send({ status: 'ok', msg: 'No blocked staff found', staffs: [] })
+        }
+        res.status(200).send({ status: 'ok', blockedStaffs })
+    } catch (error) {
+        console.error(error)
+        res.status(500).send({ status: 'error', msg: 'Failed to fetch blocked staff accounts' })
+    }
+})
+
+module.exports = router
