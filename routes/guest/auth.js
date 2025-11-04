@@ -105,8 +105,17 @@ router.post('/sign_in', async(req, res) => {
         return res.status(400).send({status: 'error', msg: 'All fields must be filled'})
 
     try {
-        // get guest from database
-        let guest = await Guest.findOne({$or: [{ email: email || null }, { phone_no: phone_no || null }] }).lean()
+       // Corrected Query Logic
+        const conditions = []
+        if (email) conditions.push({ email })
+        if (phone_no) conditions.push({ phone_no })
+
+        if (conditions.length === 0) {
+            return res.status(400).send({ status: 'error', msg: 'Email or phone number required' });
+        }
+
+        // Fetch guest using only valid conditions
+        let guest = await Guest.findOne({ $or: conditions }).lean()
         if(!guest)
             return res.status(400).send({
         status: 'error', msg:'No guest account found with the provided email or phone number'})
@@ -232,9 +241,17 @@ router.post('/forgot_password', async (req, res) => {
     }
 
     try {
-        // Find guest by email or phone
-        const guest = await Guest.findOne({
-            $or: [{ email: email || null }, { phone_no: phone_no || null }]}).lean()
+        // Corrected Query Logic
+        const conditions = []
+        if (email) conditions.push({ email })
+        if (phone_no) conditions.push({ phone_no })
+
+        if (conditions.length === 0) {
+            return res.status(400).send({ status: 'error', msg: 'Email or phone number required' });
+        }
+
+        // Fetch guest using only valid conditions
+        let guest = await Guest.findOne({ $or: conditions }).lean()
 
         if (!guest) {
             return res.status(400).send({ status: 'error', msg: 'No guest account found with the provided email or phone' });
