@@ -7,10 +7,10 @@ const bookingSchema = new mongoose.Schema({
     room: {type: mongoose.Schema.Types.ObjectId, ref: "Room"},
     room_no: String,
     room_type: String,
-    amount: {type: Number, required: true},
+    amount: Number,
     status: {type: String, enum: ["Booked", "Checked-in", "Checked-out", "Cancelled", "Overdue"],
         default: "Booked"},
-    duration: String, // e.g. "3D 3N"
+    duration: Number,
     no_of_guests: {type: Number, default: 0},
     checkInDate: Date,
     checkOutDate: Date,
