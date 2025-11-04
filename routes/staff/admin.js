@@ -6,13 +6,14 @@ dotenv.config()
 
 const bcrypt = require('bcryptjs')
 const verifyToken = require('../../middleware/verifyToken')
+const { sendStaffAccountMail } = require('../../utils/nodemailer')
 const Staff = require('../../models/staff')
 
 
 // Admin creates staff account
 router.post('/create_staff', verifyToken, async (req, res) => {
     try {
-        if (!req.user || req.user.role !== 'admin') {
+        if (!req.user || req.user.role !== 'Admin') {
             return res.status(403).send({ status: 'error', msg: 'Access denied. Only admin can create staff accounts.' })
         }
 
@@ -39,6 +40,9 @@ router.post('/create_staff', verifyToken, async (req, res) => {
 
         await newStaff.save()
 
+        // Send confirmation mail
+        await sendStaffAccountMail(email, password, fullname, 'Staff')
+
         return res.status(201).send({
             status: 'ok',
             msg: 'Staff account created successfully',
@@ -54,7 +58,7 @@ router.post('/create_staff', verifyToken, async (req, res) => {
 
 
 // View all staff
-router.get('/view_staffs', verifyToken, async (req, res) => {
+router.post('/view_staffs', verifyToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin') {
             return res.status(403).send({ status: 'error', msg: 'Access denied. Only admin can view staff accounts.' })

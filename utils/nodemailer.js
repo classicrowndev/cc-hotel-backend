@@ -85,6 +85,34 @@ const sendPasswordResetStaff = async (email, fullname, resetPasswordCode) => {
 }
 
 
+// Confirmation of Staff account created
+const sendStaffAccountMail = async (email, password, fullname, role) => {
+    try {
+        const info = await transport.sendMail({
+            from: `"Classic Crown Hotel" <${process.env.MAIL_USER}>`,
+            to: email,
+            subject: `Welcome to Classic Crown Hotel as ${role}`,
+            html: `
+                <h2>Hi ${fullname},</h2>
+                <p>Your ${role} account has been successfully created.</p>
+                <p>Here are your login details:</p>
+                <ul>
+                    <li><strong>Email:</strong> ${email}</li>
+                    <li><strong>Password:</strong> ${password}</li>
+                </ul>
+                <p>Please log in and change your password immediately.</p>
+                <p>Best Regards,<br/>Classic Crown Management Team</p>
+           `,
+        })
+
+        console.log("Staff Account Creation Email sent:", info.response)
+        return { status: "ok", msg: "Email sent" }
+    } catch (error) {
+        console.error("Error sending staff account creation email:", error)
+        return { status: "error", msg: "Failed to send email", error }
+    }
+}
+
 
 // Guest Booking Confirmation
 const sendGuestBookingMail = async (
@@ -235,6 +263,7 @@ const sendGuestEventCancellationMail = async (guest, hall, date) => {
     }
 }
 
+
 // const sendAccountVerification = async (email, fullname) => {
 //   try {
 //     const info = await transport
@@ -261,6 +290,7 @@ const sendGuestEventCancellationMail = async (guest, hall, date) => {
 module.exports = {
     sendPasswordReset,
     sendPasswordResetStaff,
+    sendStaffAccountMail,
     sendGuestBookingMail,
     sendGuestCancellationMail,
     sendGuestEventMail,

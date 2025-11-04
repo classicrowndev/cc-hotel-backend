@@ -152,9 +152,17 @@ router.post('/forgot_password', async (req, res) => {
     }
 
     try {
-        // Find staff by email or phone
-        const staff = await Staff.findOne({
-            $or: [{ email: email || null }, { phone_no: phone_no || null }]}).lean()
+        // Corrected Query Logic
+        const conditions = []
+        if (email) conditions.push({ email })
+        if (phone_no) conditions.push({ phone_no })
+
+        if (conditions.length === 0) {
+            return res.status(400).send({ status: 'error', msg: 'Email or phone number required' });
+        }
+
+        // Fetch staff using only valid conditions
+        let staff = await Staff.findOne({ $or: conditions }).lean()
 
         if (!staff) {
             return res.status(400).send({ status: 'error', msg: 'No staff account found with the provided email or phone' });
@@ -377,27 +385,5 @@ const resetPasswordCode = req.params.resetPasswordCode
     }
   })
 
-//endpoint to delete account
-router.post('/delete', verifyToken, async(req, res) => {
-    try {
-        //Find the staff and delete the account
-        const deleted = await Staff.findByIdAndDelete(req.user._id)
-
-        //Check if the staff exists and was deleted
-        if(!deleted)
-            return res.status(400).send({status: 'error', msg: 'No staff found'})
-
-        return res.status(200).send({status: 'ok', msg: 'Account Successfully deleted'})
-
-    } catch (error) {
-        console.log(error)
-
-        if(error == "JsonWebTokenError")
-            return res.status(400).send({status: 'error', msg: 'Invalid token'})
-
-        return res.status(500).send({status: 'error', msg:'An error occured'})    
-    }
-
-})
 
 module.exports = router

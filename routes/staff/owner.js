@@ -4,9 +4,9 @@ const router = express.Router()
 const dotenv = require('dotenv')
 dotenv.config()
 
-const nodemailer = require('nodemailer')
 const bcrypt = require('bcryptjs')
 const verifyToken = require('../../middleware/verifyToken')
+const { sendStaffAccountMail } = require('../../utils/nodemailer')
 const Staff = require('../../models/staff')
 
 
@@ -44,37 +44,11 @@ router.post('/create_staff', verifyToken, async (req, res) => {
 
         await newStaff.save()
 
-        // Send automatic email
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.MAIL_USER, // your gmail
-                pass: process.env.MAIL_PASS, // your app password
-           },
-        })
+        console.log("Sending email to:", email)
 
-        const mailOptions = {
-            from: `"Classic Crown Hotel" <${process.env.MAIL_USER}>`,
-            to: newStaff.email,
-            subject: `Welcome to Classic Crown Hotel as ${newStaff.role}`,
-            html: `
-                <h2>Hi ${newStaff.fullname},</h2>
-                <p>Your ${newStaff.role} account has been successfully created.</p>
-                <p>Here are your login details:</p>
-                <ul>
-                    <li><strong>Email:</strong> ${newStaff.email}</li>
-                    <li><strong>Password:</strong> ${password}</li>
-                </ul>
-                <p>Please log in and change your password immediately.</p>
-                <p>Best Regards,<br/>Paradise Management Team</p>
-           `,
-        }
 
-        // Send the mail (non-blocking)
-        transporter.sendMail(mailOptions)
-            .then(() => console.log(`Email sent to ${newStaff.email}`))
-            .catch(err => console.error('Email sending error:', err))
-
+        // Send confirmation mail (non-blocking)
+        await sendStaffAccountMail(email, password, fullname, role)
 
         return res.status(201).send({ status: 'ok',
             msg: `${role.charAt(0).toUpperCase() + role.slice(1)} account created successfully`,
