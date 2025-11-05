@@ -22,7 +22,12 @@ const hallSchema = new mongoose.Schema({
     },
     amount: {type: Number, required: true}, // Default price per event/day
     duration: String, // e.g. "3D 3N"
-    image: String,
+    images: [
+        {
+            img_id: { type: String },
+            img_url: { type: String }
+        }
+    ],
     checkInDate: Date,
     checkOutDate: Date,
     timestamp: Number

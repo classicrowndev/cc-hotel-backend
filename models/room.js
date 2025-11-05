@@ -21,7 +21,9 @@ const roomSchema = new mongoose.Schema({
             "Luxury Bathroom", "Air Conditioner", "Kitchen"],
         required: true
     },
-    images: String,
+    images: [
+        { img_id: String, img_url: String }
+    ],
     description: { type: String },
     checkInDate: Date,
     checkOutDate: Date,

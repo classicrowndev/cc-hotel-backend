@@ -4,14 +4,13 @@ const router = express.Router()
 const verifyToken = require('../../middleware/verifyToken')
 const Staff = require('../../models/staff')
 
-/*
 const cloudinary = require('../../utils/cloudinary')
-const Uploader = require('../../utils/multer')
-*/
+const uploader = require('../../utils/multer')
+
 
 
 // Edit Staff Profile
-router.post('/edit', /*Uploader.single('image'),*/ verifyToken, async (req, res) => {
+router.post('/edit', uploader.single('profile_img'), verifyToken, async (req, res) => {
     const { fullname, email, phone_no, address, gender } = req.body
 
     try {
@@ -24,7 +23,7 @@ router.post('/edit', /*Uploader.single('image'),*/ verifyToken, async (req, res)
             gender: 1,
             profile_img_id: 1,
             profile_img_url: 1
-        }).lean()
+        })
 
         if (!staff) {
             return res.status(404).send({ status: 'error', msg: 'Staff not found' })
@@ -38,13 +37,16 @@ router.post('/edit', /*Uploader.single('image'),*/ verifyToken, async (req, res)
         if (address) updateFields.address = address
         if (gender) updateFields.gender = gender
 
-        /*
-        // If implementing image upload later:
-        let profile_img_id = "", profile_img_url = ""
+        // check if a new image was uploaded
+        let profile_img_id= guest.profile_img_id
+        let profile_img_url = guest.profile_img_url
+
+        // check if guest passed in an image to upload
         if (req.file) {
-            if (Estaff.profile_img_id)
+            if (staff.profile_img_id)
                 await cloudinary.uploader.destroy(Estaff.profile_img_id)
 
+            //upload new image
             const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
                 folder: "staff-images",
             })
@@ -53,7 +55,6 @@ router.post('/edit', /*Uploader.single('image'),*/ verifyToken, async (req, res)
             updateFields.profile_img_id = profile_img_id
             updateFields.profile_img_url = profile_img_url
         }
-        */
 
         // Update staff document
         staff = await Staff.findByIdAndUpdate(staff._id, updateFields, { new: true }).lean()
@@ -69,9 +70,8 @@ router.post('/edit', /*Uploader.single('image'),*/ verifyToken, async (req, res)
     }
 })
 
-// -----------------------------
+
 // View Staff Profile
-// -----------------------------
 router.post('/view', verifyToken, async (req, res) => {
     try {
         const staff = await Staff.findById(req.user._id).lean()

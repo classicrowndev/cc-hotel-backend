@@ -1,4 +1,4 @@
-/*const multer = require('multer')
+const multer = require('multer')
 const path = require('path')
 
 module.exports = multer({
@@ -12,4 +12,3 @@ module.exports = multer({
         cb(null, true)
     }
 })
-*/

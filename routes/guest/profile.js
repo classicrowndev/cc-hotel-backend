@@ -4,35 +4,39 @@ const router = express.Router()
 const verifyToken = require('../../middleware/verifyToken') // your middleware
 const Guest = require('../../models/guest')
 
-/*
-const cloudinary = require('../utils/cloudinary')
-const Uploader = require('../utils/multer')
-*/
+const cloudinary = require('../../utils/cloudinary')
+const uploader = require('../../utils/multer')
+
 
 //edit profile
-router.post('/edit', /*Uploader.single('image'),*/ verifyToken, async(req, res) =>{
+router.post('/edit', uploader.single('profile_img'), verifyToken, async(req, res) =>{
     const {fullname, email, phone_no, address, gender} = req.body
     try {
-        let guest = await Guest.findById(req.user._id, {fullname: 1, email: 1, phone_no: 1, address: 1, gender: 1, profile_img_id: 1, profile_img_url: 1}).lean()
+        let guest = await Guest.findById(req.user._id,
+            {fullname: 1, email: 1, phone_no: 1, address: 1, gender: 1, profile_img_id: 1, profile_img_url: 1}
+        )
+
         if(!guest)
             return res.status(200).send({status: 'ok', msg: 'No guest found'})
 
-        /*
-        let profile_img_id= "", profile_img_url = ""
-        // check if guest passed in an image to upload
-        if(req.file)
-        // checks if there was a profile picture there before and destory
-        if(Eguest.profile_img_id)
-            await Cloudinary.uploader.destroy(Eguest.profile_img_id)
+        // check if a new image was uploaded
+        let profile_img_id= guest.profile_img_id
+        let profile_img_url = guest.profile_img_url
 
-        //upload new picture
-        const{secure_url, public_id} = await Cloudinary.uploader.upload(req.file.path, {
-            folder: "guest-images",
-          })
-        profile_img_id = public_id
-        profile_img_url = secure_url
-        */
-        
+        // check if guest passed in an image to upload
+        if(req.file) {
+            //checks if there was a profile picture there before and destroy
+            if(guest.profile_img_id)
+                await cloudinary.uploader.destroy(guest.profile_img_id)
+
+            //upload new image
+            const{secure_url, public_id} = await cloudinary.uploader.upload(req.file.path, {
+                folder: "guest-images",
+            })
+
+            profile_img_id = public_id
+            profile_img_url = secure_url
+        }
 
         //update guest document
         guest = await Guest.findByIdAndUpdate({_id: guest._id}, {
@@ -41,9 +45,8 @@ router.post('/edit', /*Uploader.single('image'),*/ verifyToken, async(req, res) 
             phone_no: phone_no || guest.phone_no,
             address: address || guest.address,
             gender: gender || guest.gender,
-            /*profile_img_id: profile_img_id || guest.profile_img_id,
+            profile_img_id: profile_img_id || guest.profile_img_id,
             profile_img_url: profile_img_url || guest.profile_img_url
-            */
         }, {new: true}).lean()
 
         return res.status(200).send({status: 'ok', msg: 'Edited successfully', guest})

@@ -3,6 +3,8 @@ const router = express.Router()
 
 const verifyToken = require('../../middleware/verifyToken')
 const Dish = require('../../models/dish')
+const cloudinary = require('../../utils/cloudinary')
+const uploader = require('../../utils/multer')
 
 
 //Helper to check role access
@@ -21,8 +23,8 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequire
 
 
 // Add new dish (Owner/Admin only)
-router.post('/add', verifyToken, async (req, res) => {
-    const { name, category, amount_per_portion, status, quantity, image } = req.body
+router.post('/add', verifyToken, uploader.array('images', 5), async (req, res) => {
+    const { name, category, amount_per_portion, status, quantity } = req.body
     if (!name || !category || amount_per_portion === undefined) {
         return res.status(400).send({ status: 'error', msg: 'Name, category and amount_per_portion are required' })
     }
@@ -32,13 +34,24 @@ router.post('/add', verifyToken, async (req, res) => {
     }
 
     try {
+        let images = []
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path,
+                    { folder: "dish-images" })
+                    images.push(
+                        { img_id: upload.public_id, img_url: upload.secure_url }
+                )
+            }
+        }
+
         const dish = new Dish({
             name,
             category,
             status: status || 'Available',
             quantity: quantity ?? 0,
             amount_per_portion,
-            image: image || '',
+            images, // attach upload
             date_added: Date.now(),
             timestamp: Date.now()
         })
@@ -100,7 +113,7 @@ router.post('/view', verifyToken, async (req, res) => {
 
 
 // Update dish (Owner/Admin only)
-router.post('/update', verifyToken, async (req, res) => {
+router.post('/update', verifyToken, uploader.array('images', 5), async (req, res) => {
     const { id, ...updateData } = req.body
     if (!id) {
         return res.status(400).send({ status: 'error', msg: 'Dish ID is required' })
@@ -112,6 +125,30 @@ router.post('/update', verifyToken, async (req, res) => {
 
 
     try {
+        const dish = await Dish.findById(id)
+        if (!dish) {
+            return res.status(404).send({ status: "error", msg: "Dish not found" })
+        }
+
+        // Handle new image uploads
+        if (req.files && req.files.length > 0) {
+            // Delete old images from Cloudinary first
+            if (dish.images && dish.images.length > 0) {
+                for (const img of dish.images) {
+                    await cloudinary.uploader.destroy(img.img_id)
+                }
+            }
+        
+            // Upload new ones
+            const uploadedImages = []
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path, { folder: 'dish-images' })
+                uploadedImages.push({ img_id: upload.public_id, img_url: upload.secure_url })
+            }
+        
+            updateData.images = uploadedImages
+        }
+
         updateData.timestamp = Date.now()
         const updatedDish = await Dish.findByIdAndUpdate(id, updateData, { new: true })
         if (!updatedDish) {

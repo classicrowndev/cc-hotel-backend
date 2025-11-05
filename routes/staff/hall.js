@@ -1,21 +1,10 @@
-const express = require("express")
+const express = require('express')
 const router = express.Router()
 
-const dotenv = require("dotenv")
-dotenv.config()
-
-const verifyToken = require('../../middleware/verifyToken')
-const nodemailer = require("nodemailer");
+const verifyToken = require('../../middleware/verifyToken') // your middleware
 const Hall = require("../../models/hall")
-
-// Nodemailer transporter setup
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-})
+const cloudinary = require('../../utils/cloudinary')
+const uploader = require('../../utils/multer')
 
 
 //Helper to check role access
@@ -24,107 +13,140 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequire
         return false
     if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
         return false
+
+    return true // Explicitly allow if no condition blocks access
 }
 
-// -----------------------------
-// STAFF HALL MANAGEMENT ROUTES
-// -----------------------------
+// ------------------------------------
+// Room Management - Staff Route
+// ------------------------------------
 
 
-// Create a new hall booking (Admin & Owner only)
-router.post("/create", verifyToken, async (req, res) => {
-    const { guest, email, hall_type, location, amount, duration, checkInDate, checkOutDate } = req.body
-    if (!guest || !email || !hall_type || !amount || !duration || !checkInDate || !checkOutDate) {
-        return res.status(400).send({ status: "error", msg: "All required fields must be provided" })
-    }
+// Add a new hall (Only Owner/Admin)
+router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) => {
+    const { name, type, price, capacity, description, amenities, availability } = req.body
 
     if (!checkRole(req.user, ['Owner', 'Admin'], 'hall')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can create new hall bookings.' })
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add halls.' })
     }
 
     try {
-        // If the client approves assigned staff to create hall bookings
-        /*if (decoded.role === 'Staff' && decoded.task !== 'hall') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to hall operations' })
+        let images = []
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path,
+                    { folder: "hall-images" })
+                    images.push(
+                        { img_id: upload.public_id, img_url: upload.secure_url }
+                )
+            }
         }
 
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-        }
-        */
-
-        const hall = new Hall({
-            guest,
-            email,
-            hall_type,
-            location,
-            amount,
-            duration,
-            checkInDate,
-            checkOutDate,
+        const newHall = new Hall({
+            name,
+            type,
+            price,
+            capacity,
+            description,
+            amenities,
+            availability: availability || "Available",
+            images, // attach upload
+            createdAt: Date.now(),
             timestamp: Date.now()
         })
 
-        await hall.save()
-
-        const mailOptions = {
-            from: `"Hotel Management" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: "Hall Booking Confirmation",
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Hall Booking Created</h2>
-                    <p>Dear Guest,</p>
-                    <p>Your hall booking has been created successfully.</p>
-                    <ul>
-                        <li><b>Hall Type:</b> ${hall_type}</li>
-                        <li><b>Location:</b> ${location || "Not specified"}</li>
-                        <li><b>Amount:</b> ₦${amount}</li>
-                        <li><b>Duration:</b> ${duration}</li>
-                        <li><b>Check-In:</b> ${new Date(checkInDate).toDateString()}</li>
-                        <li><b>Check-Out:</b> ${new Date(checkOutDate).toDateString()}</li>
-                    </ul>
-                    <p>Status: <b>Booked</b></p>
-                    <p>Warm regards,<br/>The Hotel Management Team</p>
-                </div>
-            `
-        }
-
-        await transporter.sendMail(mailOptions)
-        return res.status(200).send({ status: "success", msg: "Hall booking added successfully", hall })
+        await newHall.save()
+        return res.status(200).send({ status: "success", msg: "Hall added successfully", newHall })
     } catch (e) {
-        if (e.name === 'JsonWebTokenError') {
-            return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
-        }
-        return res.status(500).send({ status: "error", msg: "Error adding hall booking", error: e.message })
+        if (e.name === "JsonWebTokenError") {
+            return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
+    }
+        return res.status(500).send({ status: "error", msg: "Failed to add hall", error: e.message })
     }
 })
 
 
-// View all halls (Admin, Owner, or assigned staff)
+// Update hall details (Only Owner/Admin)
+router.post("/update", verifyToken, uploader.array('images', 5), async (req, res) => {
+    const { id, ...updateData } = req.body
+    if (!id) {
+        return res.status(400).send({ status: "error", msg: "Hall ID are required" })
+    }
+
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'hall')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can update hall details.' })
+    }
+    
+    try {
+        const hall = await Hall.findById(id)
+        if (!hall) {
+            return res.status(404).send({ status: "error", msg: "Hall not found" })
+        }
+
+        // Handle new image uploads
+        if (req.files && req.files.length > 0) {
+            // Delete old images from Cloudinary first
+            if (hall.images && hall.images.length > 0) {
+                for (const img of hall.images) {
+                    await cloudinary.uploader.destroy(img.img_id)
+                }
+            }
+
+            // Upload new ones
+            const uploadedImages = []
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path, { folder: 'hall-images' })
+                uploadedImages.push({ img_id: upload.public_id, img_url: upload.secure_url })
+            }
+
+            updateData.images = uploadedImages
+        }
+
+        updateData.timestamp = Date.now()
+        const updatedHall = await Hall.findByIdAndUpdate(id, updateData, { new: true })
+
+        if (!updatedHall) {
+            return res.status(404).send({ status: "error", msg: "Hall not found" })
+        }
+
+        return res.status(200).send({ status: "success", msg: "Hall updated successfully", updatedHall })
+    } catch (e) {
+        if (e.name === "JsonWebTokenError") {
+            return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
+        }
+        return res.status(500).send({ status: "error", msg: "Failed to update hall", error: e.message })
+    }
+})
+
+
+// View all halls (Owner/Admin or Assigned Staff)
 router.post("/all", verifyToken, async (req, res) => {
     if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'hall')) {
         return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
-        const halls = await Hall.find().sort({ timestamp: -1 })
-        if (!halls.length) {
-            return res.status(200).send({ status: "ok", msg: "No hall bookings found" })
+        // Staff must be assigned to "hall" task
+        if (req.user.role === "Staff" && req.user.task !== "hall") {
+            return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to hall operations." })
         }
 
-        return res.status(200).send({ status: "success", halls })
-    } catch (e) {
-        if (e.name === 'JsonWebTokenError') {
-            return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
+        const halls = await Hall.find().sort({ createdAt: -1 })
+        if (!halls.length) {
+            return res.status(200).send({ status: "ok", msg: "No halls found" })
         }
-        return res.status(500).send({ status: "error", msg: "Error fetching hall bookings", error: e.message })
+
+        return res.status(200).send({ status: "success", count: halls.length, halls })
+    } catch (e) {
+        if (e.name === "JsonWebTokenError") {
+            return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
+        }
+        return res.status(500).send({ status: "error", msg: "Error fetching halls", error: e.message })
     }
 })
 
 
-// View specific hall booking
+// View a specific hall (Owner/Admin or Assigned Staff)
 router.post("/view", verifyToken, async (req, res) => {
     const { id } = req.body
     if (!id) {
@@ -135,120 +157,49 @@ router.post("/view", verifyToken, async (req, res) => {
         return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
-
     try {
+        if (req.user.role === "Staff" && req.user.task !== "hall") {
+            return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to hall operations." })
+        }
+
         const hall = await Hall.findById(id)
         if (!hall) {
-            return res.status(404).send({ status: "error", msg: "Hall booking not found" })
+            return res.status(404).send({ status: "error", msg: "Hall not found" })
         }
-
-        return res.status(200).json({ status: "success", hall })
+        return res.status(200).send({ status: "success", hall })
     } catch (e) {
-        if (e.name === 'JsonWebTokenError') {
-            return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
+        if (e.name === "JsonWebTokenError") {
+            return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Error fetching hall booking", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error fetching hall", error: e.message })
     }
 })
 
 
-// Update hall booking (Admin & Owner only)
-router.post("/update", verifyToken, async (req, res) => {
-    const { id, ...updateFields } = req.body
+// Delete a hall (Only Owner/Admin)
+router.post("/delete", verifyToken, async (req, res) => {
+    const { id } = req.body
     if (!id) {
         return res.status(400).send({ status: "error", msg: "Hall ID is required" })
     }
 
     if (!checkRole(req.user, ['Owner', 'Admin'], 'hall')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner update hall bookings.' })
-    }
-
-
-    try {
-        // If the client approves assigned staff to update hall bookings
-        /*if (decoded.role === 'Staff' && decoded.task !== 'hall') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to hall operations' })
-        }
-
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-        }
-        */
-
-
-        const updatedHall = await Hall.findByIdAndUpdate(id, updateFields, { new: true })
-        if (!updatedHall) {
-            return res.status(404).send({ status: "error", msg: "Hall booking not found" })
-        }
-
-        return res.status(200).send({ status: "success", msg: "Hall booking updated successfully", updatedHall })
-    } catch (e) {
-        if (e.name === 'JsonWebTokenError') {
-            return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
-        }
-        return res.status(500).send({ status: "error", msg: "Error updating hall booking", error: e.message })
-    }
-})
-
-
-// Cancel hall booking (Admin & Owner only)
-router.post("/cancel", verifyToken, async (req, res) => {
-    const { id } = req.body
-    if (!id) {
-        return res.status(400).send({ status: "error", msg: "Hall ID are required" })
-    }
-
-    if (!checkRole(req.user, ['Owner', 'Admin'], 'hall')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can cancel hall booking.' })
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can delete hall.' })
     }
 
     try {
-        // If the client approves assigned staff to cancel hall bookings
-        /*if (decoded.role === 'Staff' && decoded.task !== 'hall') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied: not assigned to hall operations' })
+        const deletedHall = await Hall.findByIdAndDelete(id)
+        if (!deletedHall) {
+            return res.status(404).send({ status: "error", msg: "Hall not found or already deleted" })
         }
 
-        const allowedRoles = ['Owner', 'Admin', 'Staff']
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized role.' })
-        }
-        */
-
-
-        const hall = await Hall.findById(id)
-        if (!hall) {
-            return res.status(404).send({ status: "error", msg: "Hall booking not found" })
-        }
-
-        hall.status = "Cancelled"
-        await hall.save()
-
-        const mailOptions = {
-            from: `"Hotel Management" <${process.env.EMAIL_USER}>`,
-            to: hall.email,
-            subject: "Hall Booking Cancelled",
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Booking Cancelled</h2>
-                    <p>Dear Guest,</p>
-                    <p>Your hall booking for <b>${hall.hall_type}</b> has been cancelled by our management team.</p>
-                    <p>If you believe this is a mistake, please contact the hotel administration.</p>
-                    <br/>
-                    <p>Warm regards,<br/>The Hotel Management Team</p>
-                </div>
-            `
-        }
-
-        await transporter.sendMail(mailOptions)
-        return res.status(200).send({ status: "success", msg: "Hall booking cancelled successfully and email sent", hall })
+        return res.status(200).send({ status: "success", msg: "Hall deleted successfully", deletedHall })
     } catch (e) {
-        if (e.name === 'JsonWebTokenError') {
-            return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
+        if (e.name === "JsonWebTokenError") {
+            return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Error cancelling hall booking", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Failed to delete hall", error: e.message })
     }
 })
-
 
 module.exports = router

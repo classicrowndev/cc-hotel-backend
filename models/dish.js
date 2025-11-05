@@ -12,7 +12,9 @@ const dishSchema = new mongoose.Schema({
     status: {type: String, enum: ["Available", "Unavailable"], default: "Available"},
     quantity: {type: Number, default: 0},
     amount_per_portion: {type: Number, default: 0},
-    image: String,
+    images: [
+        { img_id: String, img_url: String }
+    ],
     date_added: {type: Date, default: Date.now},
     last_ordered: Date,
     createdAt: {type: Date, default: Date.now},

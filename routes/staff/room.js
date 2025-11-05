@@ -3,6 +3,9 @@ const router = express.Router()
 
 const verifyToken = require('../../middleware/verifyToken') // your middleware
 const Room = require("../../models/room")
+const cloudinary = require('../../utils/cloudinary')
+const uploader = require('../../utils/multer')
+
 
 //Helper to check role access
 const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
@@ -20,7 +23,7 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequire
 
 
 // Add a new room (Only Owner/Admin)
-router.post("/add", verifyToken, async (req, res) => {
+router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) => {
     const { name, type, price, capacity, description, amenities, availability } = req.body
 
     if (!checkRole(req.user, ['Owner', 'Admin'], 'room')) {
@@ -28,6 +31,17 @@ router.post("/add", verifyToken, async (req, res) => {
     }
 
     try {
+        let images = []
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path,
+                    { folder: "room-images" })
+                    images.push(
+                        { img_id: upload.public_id, img_url: upload.secure_url }
+                )
+            }
+        }
+
         const newRoom = new Room({
             name,
             type,
@@ -36,6 +50,7 @@ router.post("/add", verifyToken, async (req, res) => {
             description,
             amenities,
             availability: availability || "Available",
+            images, // attach upload
             createdAt: Date.now(),
             timestamp: Date.now()
         })
@@ -52,19 +67,44 @@ router.post("/add", verifyToken, async (req, res) => {
 
 
 // Update room details (Only Owner/Admin)
-router.post("/update", verifyToken, async (req, res) => {
+router.post("/update", verifyToken, uploader.array('images', 5), async (req, res) => {
     const { id, ...updateData } = req.body
     if (!id) {
         return res.status(400).send({ status: "error", msg: "Room ID are required" })
     }
 
-    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'room')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    if (!checkRole(req.user, ['Owner', 'Admin'], 'room')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can update room details.' })
     }
     
     try {
+        const room = await Room.findById(id)
+        if (!room) {
+            return res.status(404).send({ status: "error", msg: "Room not found" })
+        }
+
+        // Handle new image uploads
+        if (req.files && req.files.length > 0) {
+            // Delete old images from Cloudinary first
+            if (room.images && room.images.length > 0) {
+                for (const img of room.images) {
+                    await cloudinary.uploader.destroy(img.img_id)
+                }
+            }
+
+            // Upload new ones
+            const uploadedImages = []
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path, { folder: 'room-images' })
+                uploadedImages.push({ img_id: upload.public_id, img_url: upload.secure_url })
+            }
+
+            updateData.images = uploadedImages
+        }
+
         updateData.timestamp = Date.now()
         const updatedRoom = await Room.findByIdAndUpdate(id, updateData, { new: true })
+
         if (!updatedRoom) {
             return res.status(404).send({ status: "error", msg: "Room not found" })
         }
