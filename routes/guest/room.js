@@ -5,7 +5,7 @@ const Room = require('../../models/room')
 
 
 
-//View all rooms
+//View all rooms (with optional fiter & search)
 router.post('/all', async(req, res) => {
     try {
         //Fetch all available rooms
@@ -17,7 +17,7 @@ router.post('/all', async(req, res) => {
 
         return res.status(200).send({status: 'ok', rooms})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Failed to retrieve notifications', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Failed to retrieve rooms', error: e.message})
     }  
 })
 
@@ -39,7 +39,7 @@ router.post('/view', async(req, res) => {
         }
         return res.status(200).send({status: 'ok', room})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Failed to retrieve the notification', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Failed to retrieve the room', error: e.message})
     }  
 })
 
@@ -48,14 +48,14 @@ router.post('/view', async(req, res) => {
 router.post('/available', async(req, res) => {
     try {
         //Find room by ID
-        const availableRooms = await Room.find({ availability: "available" })
+        const rooms = await Room.find({ availability: "available" })
 
-        if (availableRooms.length === 0) {
+        if (rooms.length === 0) {
             return res.status(200).send({status: "ok", msg: "No available rooms at the moment"})
         }
-        return res.status(200).send({status: 'ok', availableRooms})
+        return res.status(200).send({status: 'ok', rooms})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Failed to retrieve the notification', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Failed to retrieve available rooms', error: e.message})
     }  
 })
 
@@ -69,7 +69,7 @@ router.post('/type', async(req, res) => {
     }
 
     try {
-        //Find room by ID
+        //Find room by type
         const rooms = await Room.find({type})
         
         if (rooms.length === 0) {
@@ -77,9 +77,61 @@ router.post('/type', async(req, res) => {
         }
         return res.status(200).send({status: 'ok', rooms})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Failed to retrieve the notification', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Failed to retrieve rooms', error: e.message})
     }  
 })
 
+
+// Search rooms
+router.post('/search', async(req, res) => {
+    const { search } = req.body
+
+    if (!search) {
+        return res.status(400).send({status:'error', msg: 'Search term is required'})
+    }
+
+    try {
+        // Find the rooms
+        const rooms = await Room.find({
+            $or: [
+                { name: { $regex: search, $options: "i" } },
+                { description: { $regex: search, $options: "i" } }
+            ]
+        }).select('type price capacity amenities description')
+
+        if (!rooms || rooms.length === 0) {
+            return res.status(200).send({ status: 'ok', msg: "No rooms matched your search" })
+        }
+
+        return res.status(200).send({status: 'ok', rooms})
+    } catch (e) {
+        return res.status(500).send({status: 'error', msg:'Error searching rooms', error: e.message})
+    }  
+})
+
+
+// Filter rooms
+router.post('/filter', async (req, res) => {
+    const { type } = req.body
+
+    //Build query dynamically
+    let query = {}
+
+    // Filter by type (e.g. Standard, Deluxe, VIP)
+    if (type && type !== 'All') {
+        query.type = type
+    }
+
+    try {
+        const rooms = await Room.find(query).select('type description image price capacity amenities')
+        if (!rooms.length) {
+            return res.status(200).send({ status: 'ok', msg: 'No rooms match the filter' })
+        }
+
+        return res.status(200).send({ status: 'ok', rooms })
+    } catch (e) {
+        return res.status(500).send({ status: 'error', msg: 'Error filtering rooms', error: e.message })
+    }
+})
 
 module.exports = router

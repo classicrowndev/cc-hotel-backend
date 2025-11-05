@@ -5,8 +5,8 @@ const dishSchema = new mongoose.Schema({
     name: {type: String, required: true},
     category: {
         type: String,
-        enum: ["Breakfast", "Main Meal", "Swallow", "Soups",
-            "Bar & Drinks", "Beverages", "Meat & Fish", "Snack & Desserts"
+        enum: ["Breakfast", "Main Meal", "Swallow", "Soup",
+            "Bar & Drinks", "Beverages", "Meat & Fish", "Snacks & Desserts"
         ]
     },
     status: {type: String, enum: ["Available", "Unavailable"], default: "Available"},

@@ -1,11 +1,10 @@
 const express = require('express')
 const router = express.Router()
-const verifyToken = require('../../middleware/verifyToken')
-const Dish = require("../../models/dish.js");
+const Dish = require("../../models/dish.js")
 
 
 // View all available dishes
-router.post("/all", verifyToken, async (req, res) => {
+router.post("/all", async (req, res) => {
     try {
         // Fetch all available dishes
         const dishes = await Dish.find({ status: "Available" }).sort({ date_added: -1})
@@ -14,17 +13,14 @@ router.post("/all", verifyToken, async (req, res) => {
         }
 
         return res.status(200).send({status:'success', count: dishes.length, dishes})
-    } catch (error) {
-        if (e.name === "JsonWebTokenError") {
-            return res.status(400).send({status: 'error', msg:'Token verification failed', error: e.message})
-        }
+    } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error fetching dishes', error: e.message})
     }  
 })
 
 
 // View dishes by category
-router.post("/category", verifyToken, async (req, res) => {
+router.post("/category", async (req, res) => {
     const {category} = req.body
 
     if (!category) {
@@ -39,17 +35,14 @@ router.post("/category", verifyToken, async (req, res) => {
         }
 
         return res.status(200).send({ status: 'success', count: dishes.length, dishes})
-    } catch (error) {
-        if (e.name === "JsonWebTokenError") {
-            return res.status(400).send({status: 'error', msg:'Token verification failed', error: e.message})
-        }
+    } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error fetching dishes by category', error: e.message})
     }  
 })
 
 
 // View single dish by ID
-router.post("/view", verifyToken, async (req, res) => {
+router.post("/view", async (req, res) => {
     const { id} = req.body
 
     if (!id) {
@@ -64,17 +57,14 @@ router.post("/view", verifyToken, async (req, res) => {
         }
 
         return res.status(200).send({status: 'success', dish})
-    } catch (error) {
-        if (e.name === "JsonWebTokenError") {
-            return res.status(400).send({status: 'error', msg:'Token verification failed', error: e.message})
-        }
+    } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error fetching dish details', error: e.message})
     }  
 })
 
 
 // Search for dishes by name
-router.post("/search", verifyToken, async (req, res) => {
+router.post("/search", async (req, res) => {
     const { name} = req.body
 
     if (!name) {
@@ -93,12 +83,41 @@ router.post("/search", verifyToken, async (req, res) => {
         }
 
         return res.status(200).send({status: 'ok', count: dishes.length, dishes})
-    } catch (error) {
-        if (e.name === "JsonWebTokenError") {
-            return res.status(400).send({status: 'error', msg:'Token verification failed', error: e.message})
-        }
+    } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error searching dishes', error: e.message})
     }  
+})
+
+
+// Filter dishes/meals
+router.post('/filter', async (req, res) => {
+    const { category } = req.body
+
+    // Validate category if provided
+    const validCategories = ["Breakfast", "Main Meal", "Swallow", "Soup", "Bar & Drinks", "Beverages",
+        "Meat & Fish", "Snack & Desserts"]
+    if (category && !validCategories.includes(category)) {
+        return res.status(400).send({ status: 'error', msg: 'Invalid category' })
+    }
+
+    //Build query dynamically
+    let query = {}
+
+    // Filter by category (e.g. Appetizer, Main Course, Dessert)
+    if (category && category !== 'All') {
+        query.category = category
+    }
+
+    try {
+        const dishes = await Dish.find(query).select('name category image amount_per_portion')
+        if (!dishes.length) {
+            return res.status(200).send({ status: 'ok', msg: 'No dishes match the filter' })
+        }
+
+        return res.status(200).send({ status: 'ok', dishes })
+    } catch (e) {
+        return res.status(500).send({ status: 'error', msg: 'Error filtering rooms', error: e.message })
+    }
 })
 
 

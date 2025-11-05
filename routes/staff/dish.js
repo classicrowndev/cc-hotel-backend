@@ -11,6 +11,7 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequire
         return false
     if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
         return false
+    return true
 }
 
 
@@ -156,7 +157,7 @@ router.post('/delete', verifyToken, async (req, res) => {
 
 
 // Update dish status (Owner/Admin or Assigned Staff)
-router.post('/update_status', async (req, res) => {
+router.post('/update_status', verifyToken, async (req, res) => {
     const { id, status } = req.body
     if (!id || !status) {
         return res.status(400).send({ status: 'error', msg: 'Dish ID and status are required' })
@@ -234,5 +235,6 @@ router.post('/search', verifyToken, async (req, res) => {
         return res.status(500).send({ status: 'error', msg: 'Error searching dishes', error: e.message })
     }
 })
+
 
 module.exports = router
