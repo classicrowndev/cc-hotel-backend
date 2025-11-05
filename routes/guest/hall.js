@@ -1,197 +1,136 @@
 const express = require('express')
 const router = express.Router()
-const verifyToken = require('../../middleware/verifyToken')
-const nodemailer = require("nodemailer");
+
 const Hall = require('../../models/hall')
 
-const dotenv = require('dotenv')
-dotenv.config()
 
 
-// Nodemailer transporter
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-})
-
-// Book a hall
-router.post('/book', verifyToken, async (req, res) => {
-    const { email, hall_type, location, amount, duration, checkInDate, checkOutDate } = req.body
-
-    if (!email || !hall_type || !amount || !duration || !checkInDate || !checkOutDate) {
-        return res.status(400).send({ status: 'error', msg: 'All required fields must be provided' })
-    }
-
+//View all halls (with optional fiter & search)
+router.post('/all', async(req, res) => {
     try {
-        // Create a new hall request
-        const newHallBooking = new Hall({
-            guest: guest._id,
-            email,
-            hall_type,
-            location,
-            amount,
-            duration,
-            checkInDate,
-            checkOutDate,
-            timestamp: Date.now(),
-        })
+        //Fetch all halls
+        const halls = await Hall.find()
 
-        await newHallBooking.save()
-
-        // Send booking confirmation email
-        const mailOptions = {
-            from: `"Hotel Reservation" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: "Hall Booking Confirmation",
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Hall Booking Confirmed 🎉</h2>
-                    <p>Dear Guest,</p>
-                    <p>Your hall booking has been successfully confirmed with the following details:</p>
-                    <ul>
-                        <li><b>Hall Type:</b> ${hall_type}</li>
-                        <li><b>Location:</b> ${location || "Not specified"}</li>
-                        <li><b>Amount:</b> ₦${amount}</li>
-                        <li><b>Duration:</b> ${duration}</li>
-                        <li><b>Check-In Date:</b> ${new Date(checkInDate).toDateString()}</li>
-                        <li><b>Check-Out Date:</b> ${new Date(checkOutDate).toDateString()}</li>
-                    </ul>
-                    <p>Status: <b>Booked</b></p>
-                    <p>We look forward to hosting your event with us!</p>
-                    <br/>
-                    <p>Warm regards,<br/>The Hotel Management Team</p>
-                </div>
-            `,
+        if (halls.length === 0) {
+            return res.status(200).send({status: "ok", msg: "No halls at the moment"})
         }
 
-        await transporter.sendMail(mailOptions)
-
-        return res.status(200).send({
-            status: 'success',
-            msg: 'Hall booked successfully, confirmation email sent',
-            booking: newHallBooking
-        })
+        return res.status(200).send({status: 'ok', halls})
     } catch (e) {
-        if (e.name === 'JsonWebTokenError') {
-            return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
-        }
-        return res.status(500).send({ status: 'error', msg: 'Error booking hall', error: e.message })
-    }
+        return res.status(500).send({status: 'error', msg:'Failed to retrieve halls', error: e.message})
+    }  
 })
 
 
-// View all hall bookings for a guest
-router.post('/all', verifyToken, async (req, res) => {
-    try {
-        // Fetch all hall bookings
-        const bookings = await Hall.find({ guest: guest._id }).sort({ timestamp: -1 })
-        if (bookings.length === 0) {
-            return res.status(200).send({ status: 'ok', msg: 'No bookings found for this guest' })
-        }
+// View a single hall by ID
+router.post('/view', async(req, res) => {
+    const {id} = req.body
 
-        return res.status(200).send({ status: 'success', count: bookings.length, bookings })
-    } catch (e) {
-        if (e.name === 'JsonWebTokenError') {
-            return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
-        }
-        return res.status(500).send({ status: 'error', msg: 'Error fetching bookings', error: e.message })
+    if(!id) {
+        return res.status(400).send({status: 'error', msg: 'Hall ID must be provided'})
     }
+
+    try {
+        //Find hall by ID
+        const hall = await Hall.findById(id)
+        
+        if (!hall) {
+            return res.status(400).send({status: "error", msg: "Hall not found"})
+        }
+        return res.status(200).send({status: 'ok', hall})
+    } catch (e) {
+        return res.status(500).send({status: 'error', msg:'Failed to retrieve the hall', error: e.message})
+    }  
 })
 
 
-// View a specific booking
-router.post('/view', verifyToken, async (req, res) => {
-    const { id } = req.body
-    if (!id) {
-        return res.status(400).send({ status: 'error', msg: 'Booking ID is required' })
-    }
-
+// View only available halls
+router.post('/available', async(req, res) => {
     try {
-        // fetch the hall booking
-        const booking = await Hall.findById(id)
+        //Find hall by ID
+        const halls = await Hall.find({ availability: "available" })
 
-        if (!booking) {
-            return res.status(404).send({ status: 'error', msg: 'Booking not found' })
+        if (halls.length === 0) {
+            return res.status(200).send({status: "ok", msg: "No available halls at the moment"})
         }
-
-        if (booking.guest.toString() !== guest._id.toString()) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized access to this booking' })
-        }
-
-        return res.status(200).send({ status: 'success', booking })
+        return res.status(200).send({status: 'ok', halls})
     } catch (e) {
-        if (e.name === 'JsonWebTokenError') {
-            return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
-        }
-        return res.status(500).send({ status: 'error', msg: 'Error fetching booking', error: e.message })
-    }
+        return res.status(500).send({status: 'error', msg:'Failed to retrieve available halls', error: e.message})
+    }  
 })
 
 
-// Update a booking
-router.post('/update', verifyToken, async (req, res) => {
-    const { id, ...updateFields } = req.body
-    if (!id) {
-        return res.status(400).send({ status: 'error', msg: 'Booking ID is required' })
+// View halls by type
+router.post('/type', async(req, res) => {
+    const {type} = req.body
+
+    if(!type) {
+        return res.status(400).send({status: 'error', msg: 'Hall type must be provided'})
     }
 
     try {
-        // verify the guest's token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
-        // fetch the hall booking
-        const booking = await Hall.findById(id)
-
-        if (!booking) {
-            return res.status(404).send({ status: 'error', msg: 'Booking not found' })
+        //Find hall by type
+        const halls = await Hall.find({type})
+        
+        if (halls.length === 0) {
+            return res.status(200).send({status: "ok", msg: `No halls found for type: ${type}`})
         }
-
-        if (booking.guest.toString() !== guest._id.toString()) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized action' })
-        }
-
-        const updatedBooking = await Hall.findByIdAndUpdate(id, updateFields, { new: true })
-        return res.status(200).send({ status: 'success', msg: 'Booking updated successfully', updatedBooking })
+        return res.status(200).send({status: 'ok', halls})
     } catch (e) {
-        if (e.name === 'JsonWebTokenError') {
-            return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
-        }
-        return res.status(500).send({ status: 'error', msg: 'Error updating booking', error: e.message })
-    }
+        return res.status(500).send({status: 'error', msg:'Failed to retrieve halls', error: e.message})
+    }  
 })
 
 
-// Cancel a booking
-router.post('/cancel', verifyToken, async (req, res) => {
-    const { id } = req.body
-    if (!id) {
-        return res.status(400).send({ status: 'error', msg: 'Booking ID is required' })
+// Search halls
+router.post('/search', async(req, res) => {
+    const { search } = req.body
+
+    if (!search) {
+        return res.status(400).send({status:'error', msg: 'Search term is required'})
     }
 
     try {
-        // fetch the hall booking
-        const booking = await Hall.findById(id)
+        // Find the halls
+        const halls = await Hall.find({
+            $or: [
+                { name: { $regex: search, $options: "i" } },
+                { description: { $regex: search, $options: "i" } }
+            ]
+        }).select('type price capacity amenities description')
 
-        if (!booking) {
-            return res.status(404).send({ status: 'error', msg: 'Booking not found' })
+        if (!halls || halls.length === 0) {
+            return res.status(200).send({ status: 'ok', msg: "No halls matched your search" })
         }
 
-        if (booking.guest.toString() !== guest._id.toString()) {
-            return res.status(403).send({ status: 'error', msg: 'Unauthorized access' })
-        }
-
-        booking.status = 'Cancelled'
-        await booking.save()
-
-        return res.status(200).send({ status: 'success', msg: 'Booking cancelled successfully', booking })
+        return res.status(200).send({status: 'ok', halls})
     } catch (e) {
-        if (e.name === 'JsonWebTokenError') {
-            return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
+        return res.status(500).send({status: 'error', msg:'Error searching halls', error: e.message})
+    }  
+})
+
+
+// Filter halls
+router.post('/filter', async (req, res) => {
+    const { type } = req.body
+
+    //Build query dynamically
+    let query = {}
+
+    // Filter by type (e.g. Standard, Deluxe, VIP)
+    if (type && type !== 'All') {
+        query.type = type
+    }
+
+    try {
+        const halls = await Hall.find(query).select('type description image price capacity amenities')
+        if (!halls.length) {
+            return res.status(200).send({ status: 'ok', msg: 'No halls match the filter' })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error cancelling booking', error: e.message })
+
+        return res.status(200).send({ status: 'ok', halls })
+    } catch (e) {
+        return res.status(500).send({ status: 'error', msg: 'Error filtering halls', error: e.message })
     }
 })
 
