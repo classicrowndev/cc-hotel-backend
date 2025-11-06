@@ -3,7 +3,7 @@ const mongoose = require("mongoose")
 const hallSchema = new mongoose.Schema({
     id: {type: mongoose.Schema.Types.ObjectId, auto: true},
     name: {type: String, required: true}, // Each hall name must be unique, e.g. "Emerald Hall", "Diamond Ballroom"
-    hall_type: {
+    type: {
         type: String,
         enum: ["Conference Hall", "Banquet Hall B", "Boardroom", "Grand Ballroom"],
         required: true
@@ -13,7 +13,8 @@ const hallSchema = new mongoose.Schema({
         type: String,
         enum: ["Ground Floor", "First Floor", "Second Floor"]
     },
-    amenities: { type: String, enum: ["Sound System", "Air Conditioning", "Projector",
+    amenities: { 
+        type: [String], enum: ["Sound System", "Air Conditioning", "Projector",
         "Catering Service", "Stage", "Parking Space"]
     },
     capacity: {type: Number, required: true}, //No. of guests the hall can contain

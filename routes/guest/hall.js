@@ -48,7 +48,7 @@ router.post('/view', async(req, res) => {
 router.post('/available', async(req, res) => {
     try {
         //Find hall by ID
-        const halls = await Hall.find({ availability: "available" })
+        const halls = await Hall.find({ availability: "Available" })
 
         if (halls.length === 0) {
             return res.status(200).send({status: "ok", msg: "No available halls at the moment"})
@@ -86,6 +86,9 @@ router.post('/type', async(req, res) => {
 router.post('/search', async(req, res) => {
     const { search } = req.body
 
+    console.log(req.body);
+
+
     if (!search) {
         return res.status(400).send({status:'error', msg: 'Search term is required'})
     }
@@ -109,29 +112,5 @@ router.post('/search', async(req, res) => {
     }  
 })
 
-
-// Filter halls
-router.post('/filter', async (req, res) => {
-    const { type } = req.body
-
-    //Build query dynamically
-    let query = {}
-
-    // Filter by type (e.g. Standard, Deluxe, VIP)
-    if (type && type !== 'All') {
-        query.type = type
-    }
-
-    try {
-        const halls = await Hall.find(query).select('type description image price capacity amenities')
-        if (!halls.length) {
-            return res.status(200).send({ status: 'ok', msg: 'No halls match the filter' })
-        }
-
-        return res.status(200).send({ status: 'ok', halls })
-    } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error filtering halls', error: e.message })
-    }
-})
 
 module.exports = router
