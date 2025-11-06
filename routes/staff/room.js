@@ -131,7 +131,15 @@ router.post("/all", verifyToken, async (req, res) => {
             return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to room operations." })
         }
 
-        const rooms = await Room.find().sort({ createdAt: -1 })
+        // Get category from request body (or default to All)
+        const { category } = req.body
+        const filter = {}
+
+        if (category && category !== "All") {
+            filter.category = category  // filter by category
+        }
+
+        const rooms = await Room.find(filter).sort({ createdAt: -1 })
         if (!rooms.length) {
             return res.status(200).send({ status: "ok", msg: "No rooms found" })
         }

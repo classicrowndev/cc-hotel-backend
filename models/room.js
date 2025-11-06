@@ -4,9 +4,14 @@ const roomSchema = new mongoose.Schema({
     name: { type: String, required: true },
     type: {
         type: String,
-        enum: ["Standard Suite", "Regular Suite", "Deluxe Suite",
+        enum: ["Standard Suite", "Regular Suite", "Deluxe Room",
             "Platinum Suite", "Premium Suite", "Luxury Suite", "Executive Suite"],
         required: true
+    },
+    category: {
+        type: String,
+        enum: ["All", "Suites", "VIP", "Special Offers"],
+        default: "All"
     },
     price: { type: Number, required: true },
     capacity: { type: Number, required: true },
