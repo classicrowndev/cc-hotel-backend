@@ -82,56 +82,48 @@ router.post('/type', async(req, res) => {
 })
 
 
-// Search rooms
-router.post('/search', async(req, res) => {
-    const { search } = req.body
-
-    if (!search) {
-        return res.status(400).send({status:'error', msg: 'Search term is required'})
-    }
-
-    try {
-        // Find the rooms
-        const rooms = await Room.find({
-            $or: [
-                { name: { $regex: search, $options: "i" } },
-                { description: { $regex: search, $options: "i" } }
-            ]
-        }).select('type price capacity amenities description')
-
-        if (!rooms || rooms.length === 0) {
-            return res.status(200).send({ status: 'ok', msg: "No rooms matched your search" })
-        }
-
-        return res.status(200).send({status: 'ok', rooms})
-    } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Error searching rooms', error: e.message})
-    }  
-})
-
-
-// Filter rooms
+// Filter and Search Rooms
 router.post('/filter', async (req, res) => {
-    const { category } = req.body
-
-    //Build query dynamically
-    let query = {}
-
-    // Filter by category (e.g. "All", "Suites", "VIP", "Special Offers")
-    if (category && category !== 'All') {
-        query.category = category
-    }
-
     try {
-        const rooms = await Room.find(query).select('name type description images price capacity amenities')
-        if (!rooms.length) {
-            return res.status(200).send({ status: 'ok', msg: 'No rooms match the filter' })
+        const { category, minPrice, maxPrice, status, search } = req.body
+
+        // Step 1: Build filter query for MongoDB
+        const query = {}
+        if (category) query.category = category
+        if (status) query.status = status
+        if (minPrice && maxPrice) query.price = { $gte: minPrice, $lte: maxPrice }
+        else if (minPrice) query.price = { $gte: minPrice }
+        else if (maxPrice) query.price = { $lte: maxPrice }
+
+        // Step 2: Fetch filtered results from DB
+        let rooms = await Room.find(query).lean()
+
+        // Step 3: If a search keyword exists, search only within filtered results
+        if (search && search.trim() !== '') {
+            const keyword = search.toLowerCase()
+            rooms = rooms.filter(room =>
+                room.name?.toLowerCase().includes(keyword) ||
+                room.type?.toLowerCase().includes(keyword) ||
+                room.category?.toLowerCase().includes(keyword) ||
+                room.description?.toLowerCase().includes(keyword)
+           )
         }
 
-        return res.status(200).send({ status: 'ok', rooms })
-    } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error filtering rooms', error: e.message })
+        // Step 4: Handle empty results
+        if (!rooms.length) {
+            return res.status(200).send({ status: 'ok', msg: 'No rooms found' })
+        }
+
+        // Step 5: Send successful response
+        return res.status(200).send({ status: 'success', msg: 'Rooms retrieved successfully', count: rooms.length, rooms }) 
+ 
+    } catch (error) {
+        console.error(error)
+        return res.status(500).send({
+            status: 'error', msg: 'An error occurred while fetching rooms', error: error.message
+       })
     }
 })
+
 
 module.exports = router
