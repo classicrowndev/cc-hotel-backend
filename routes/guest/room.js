@@ -112,18 +112,18 @@ router.post('/search', async(req, res) => {
 
 // Filter rooms
 router.post('/filter', async (req, res) => {
-    const { type } = req.body
+    const { category } = req.body
 
     //Build query dynamically
     let query = {}
 
-    // Filter by type (e.g. Standard, Deluxe, VIP)
-    if (type && type !== 'All') {
-        query.type = type
+    // Filter by category (e.g. "All", "Suites", "VIP", "Special Offers")
+    if (category && category !== 'All') {
+        query.category = category
     }
 
     try {
-        const rooms = await Room.find(query).select('type description image price capacity amenities')
+        const rooms = await Room.find(query).select('type description images price capacity amenities')
         if (!rooms.length) {
             return res.status(200).send({ status: 'ok', msg: 'No rooms match the filter' })
         }
