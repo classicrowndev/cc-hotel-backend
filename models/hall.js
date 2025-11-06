@@ -17,10 +17,10 @@ const hallSchema = new mongoose.Schema({
         "Catering Service", "Stage", "Parking Space"]
     },
     capacity: {type: Number, required: true}, //No. of guests the hall can contain
-    status: {type: String, enum: ["Available", "Booked", "In Progress", "Completed", "Cancelled", "Overdue"],
+    availability: {type: String, enum: ["Available", "Booked", "In Progress", "Completed", "Cancelled", "Overdue"],
         default: "Available"
     },
-    amount: {type: Number, required: true}, // Default price per event/day
+    price: {type: Number, required: true}, // Default price per event/day
     duration: String, // e.g. "3D 3N"
     images: [
         {
