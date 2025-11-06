@@ -47,7 +47,7 @@ router.post('/place', verifyToken, async (req, res) => {
         }
 
         const order = new Order({
-            guest: guest._id,
+            guest: req.user._id,
             email,
             dishes: orderDishes,
             room,
@@ -72,7 +72,7 @@ router.post('/place', verifyToken, async (req, res) => {
 router.post('/all', verifyToken, async (req, res) => {
     try {
         // Fetch all orders
-        const orders = await Order.find({ guest: guest._id }).sort({ order_date: -1 })
+        const orders = await Order.find({ guest: req.user._id }).sort({ order_date: -1 })
         if (orders.length === 0) {
             return res.status(200).send({ status: 'ok', msg: 'No orders found for this guest' })
         }
@@ -102,7 +102,7 @@ router.post('/view', verifyToken, async (req, res) => {
             return res.status(400).send({ status: 'error', msg: 'Order not found' })
         }
 
-        if (order.guest.toString() !== guest._id.toString()) {
+        if (order.guest.toString() !== req.user._id.toString()) {
             return res.status(403).send({ status: 'error', msg: 'Unauthorized access to this order' })
         }
 
@@ -131,7 +131,7 @@ router.post('/cancel', verifyToken, async (req, res) => {
             return res.status(400).send({ status: 'error', msg: 'Order not found' })
         }
 
-        if (order.guest.toString() !== guest._id.toString()) {
+        if (order.guest.toString() !== req.user._id.toString()) {
             return res.status(403).send({ status: 'error', msg: 'Unauthorized access to this order' })
         }
 
