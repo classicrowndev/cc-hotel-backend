@@ -153,14 +153,6 @@ router.post("/all", verifyToken, async (req, res) => {
             return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to room operations." })
         }
 
-        // Get category from request body (or default to All)
-        const { category } = req.body
-        const filter = {}
-
-        if (category && category !== "All") {
-            filter.category = category  // filter by category
-        }
-
         const rooms = await Room.find().sort({ createdAt: -1 })
         if (!rooms.length) {
             return res.status(200).send({ status: "ok", msg: "No rooms found" })
@@ -202,6 +194,42 @@ router.post("/view", verifyToken, async (req, res) => {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
         }
         return res.status(500).send({ status: "error", msg: "Error fetching room", error: e.message })
+    }
+})
+
+
+// Filter rooms (Owner/Admin or Assigned Staff)
+router.post('/filter', verifyToken, async (req, res) => {
+    const { category } = req.body
+
+    //Build query dynamically
+    let query = {}
+
+    // Filter by category (e.g. "All", "Suites", "VIP", "Special Offers")
+    if (category && category !== 'All') {
+        query.category = category
+    }
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'room')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
+    try {
+        if (req.user.role === "Staff" && req.user.task !== "room") {
+            return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to room operations." })
+        }
+
+        const rooms = await Room.find(query).select('type description images price capacity amenities')
+        if (!rooms.length) {
+            return res.status(200).send({ status: 'ok', msg: 'No rooms match the filter' })
+        }
+
+        return res.status(200).send({ status: 'ok', rooms })
+    } catch (e) {
+        if (e.name === "JsonWebTokenError") {
+            return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
+        }
+        return res.status(500).send({ status: 'error', msg: 'Error filtering rooms', error: e.message })
     }
 })
 
