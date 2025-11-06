@@ -32,6 +32,8 @@ router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) =
 
     try {
         let images = []
+
+        // Handle uploaded files first
         if (req.files && req.files.length > 0) {
             for (const file of req.files) {
                 const upload = await cloudinary.uploader.upload(file.path,
@@ -39,6 +41,25 @@ router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) =
                     images.push(
                         { img_id: upload.public_id, img_url: upload.secure_url }
                 )
+            }
+        }
+
+        // Handle JSON images sent in the request body
+        let bodyImages = []
+        if (req.body.images) {
+            try {
+                // If images are sent as JSON string, parse it
+                bodyImages = typeof req.body.images === 'string' ? JSON.parse(req.body.images) : req.body.images;
+            } catch (err) {
+                return res.status(400).send({ status: "error", msg: "Invalid format for images", error: err.message });
+            }
+
+            if (Array.isArray(bodyImages) && bodyImages.length > 0) {
+                for (const img of bodyImages) {
+                    if (img.img_id && img.img_url) {
+                        images.push({ img_id: img.img_id, img_url: img.img_url });
+                    }
+                }
             }
         }
 

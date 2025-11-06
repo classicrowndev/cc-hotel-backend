@@ -178,6 +178,98 @@ const sendGuestCancellationMail = async (email, fullname, roomName) => {
     }
 }
 
+
+// Guest Event Approved
+const sendGuestEventApprovalMail = async (email, title, start_date, end_date, hall_name) => {
+    try {
+        const info = await transport.sendMail({
+            from: `"Classic Crown Hotel" <${process.env.MAIL_USER}>`,
+            to: email,
+            subject: `Your Event Has Been Approved: ${title}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Event Approved 🎉</h2>
+                    <p>Dear Guest,</p>
+                    <p>Your event request has been approved!</p>
+                    <ul>
+                        <li><b>Title:</b> ${title}</li>
+                        <li><b>Hall:</b> ${hall_name}</li>
+                        <li><b>Start Date:</b> ${new Date(start_date).toDateString()}</li>
+                        <li><b>End Date:</b> ${new Date(end_date).toDateString()}</li>
+                    </ul>
+                    <p>We’re excited to host your event. Please check your dashboard for more details.</p>
+                    <br/>
+                    <p>Best regards,<br/>Classic Crown Hotel Management</p>
+                </div>
+            `
+        })
+        console.log("Guest Event Approval Email sent:", info.response)
+    } catch (error) {
+        console.error("Error sending guest event approval email:", error)
+    }
+}
+
+
+// Guest Event Rejected
+const sendGuestEventRejectionMail = async (email, title, reason) => {
+    try {
+        const info = await transport.sendMail({
+            from: `"Classic Crown Hotel" <${process.env.MAIL_USER}>`,
+            to: email,
+            subject: `Event Request Rejected: ${title}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Event Rejected ❌</h2>
+                    <p>Dear Guest,</p>
+                    <p>Unfortunately, your event request has been declined.</p>
+                    <ul>
+                        <li><b>Event:</b> ${title}</li>
+                        <li><b>Reason:</b> ${reason || "Not specified"}</li>
+                    </ul>
+                    <p>You may submit a new request or contact us for clarification.</p>
+                    <br/>
+                    <p>Regards,<br/>Classic Crown Hotel Management</p>
+                </div>
+            `
+        })
+        console.log("Guest Event Rejection Email sent:", info.response)
+    } catch (error) {
+        console.error("Error sending guest event rejection email:", error)
+    }
+}
+
+
+// Guest Event Completed
+const sendGuestEventCompletionMail = async (email, title, hall_name, end_date) => {
+    try {
+        const info = await transport.sendMail({
+            from: `"Classic Crown Hotel" <${process.env.MAIL_USER}>`,
+            to: email,
+            subject: `Event Completed: ${title}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Event Completed ✅</h2>
+                    <p>Dear Guest,</p>
+                    <p>Your event has been successfully completed.</p>
+                    <ul>
+                        <li><b>Event:</b> ${title}</li>
+                        <li><b>Hall:</b> ${hall_name}</li>
+                        <li><b>End Date:</b> ${new Date(end_date).toDateString()}</li>
+                    </ul>
+                    <p>We hope you had a wonderful experience with us!</p>
+                    <p>Thank you for choosing Classic Crown Hotel.</p>
+                    <br/>
+                    <p>Warm regards,<br/>Classic Crown Hotel Management</p>
+                </div>
+            `
+        })
+        console.log("Guest Event Completion Email sent:", info.response)
+    } catch (error) {
+        console.error("Error sending guest event completion email:", error)
+    }
+}
+
+
 // const sendOTP = async (email, otp) => {
 //   try {
 //     const info = await transport
@@ -201,8 +293,9 @@ const sendGuestCancellationMail = async (email, fullname, roomName) => {
 //   }
 // };
 
-// Guest Event Booking Confirmation
-const sendGuestEventMail = async (guest, hall, date) => {
+
+// Guest Event Booking Request
+const sendGuestEventRequestMail = async (guest, hall, date) => {
     try {
         const info = await transport.sendMail({
             from: `"Hotel Events" <${process.env.MAIL_USER}>`,
@@ -211,26 +304,26 @@ const sendGuestEventMail = async (guest, hall, date) => {
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
                     <h2>Event Reservation Confirmed 🎉</h2>
-                    <p>Dear Guest,</p>
-                    <p>Your reservation for <b>${hall.name}</b> has been successfully confirmed.</p>
+                    <p>Dear ${guest.fullname || "Guest"},</p>
+                    <p>Your reservation for <b>${hall.name}</b> has been successfully recorded.</p>
                     <ul>
                         <li><b>Date:</b> ${new Date(date).toDateString()}</li>
                         <li><b>Location:</b> ${hall.location}</li>
-                        <li><b>Amount:</b> ₦${hall.amount.toLocalString()}</li>
+                        <li><b>Amount:</b> ₦${Number(hall.amount).toLocaleString()}</li>
                         <li><b>Hall Type:</b> ${hall.hall_type}</li>
                     </ul>
-                    <p>Status: <b>Booked</b></p>
-                    <p>We look forward to seeing you at the event!</p>
+                    <p>Status: <b>Pending Staff Approval</b></p>
+                    <p>Our management will review and confirm the request shortly.</p>
                     <br/>
                     <p>Warm regards,<br/>Hotel Events Team</p>
                 </div>
             `,
         })
 
-        console.log("Event Booking Confirmation Email sent:", info.response)
+        console.log("✅ Event Booking Request Email sent:", info.response)
         return { status: "ok", msg: "Email sent" }
     } catch (error) {
-        console.error("Error sending event booking email:", error)
+        console.error("❌ Error sending event booking request email:", error)
         return { status: "error", msg: "Failed to send email", error }
     }
 }
@@ -240,25 +333,25 @@ const sendGuestEventMail = async (guest, hall, date) => {
 const sendGuestEventCancellationMail = async (guest, hall, date) => {
     try {
         const info = await transport.sendMail({
-            from: `"Hotel Events" <${process.env.EMAIL_USER}>`,
+            from: `"Hotel Events" <${process.env.MAIL_USER}>`,
             to: guest.email,
             subject: "Event Reservation Cancelled",
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
                     <h2>Event Reservation Cancelled ❌</h2>
-                    <p>Dear Guest,</p>
-                    <p>Your reservation for <b>${event.name}</b> scheduled on <b>${new Date(event.date).toDateString()}</b> has been successfully cancelled.</p>
-                    <p>If this was a mistake, please rebook anytime through our events page.</p>
+                    <p>Dear ${guest.fullname || "Guest"},</p>
+                    <p>Your reservation for <b>${hall.name}</b> scheduled on <b>${new Date(date).toDateString()}</b> has been successfully cancelled.</p>
+                    <p>If this was a mistake, you can make a new booking anytime through our events page.</p>
                     <br/>
                     <p>Warm regards,<br/>Hotel Events Team</p>
                 </div>
             `,
         })
 
-        console.log("Event Booking Cancellation Email sent:", info.response)
+        console.log("✅ Event Cancellation Email sent:", info.response)
         return { status: "ok", msg: "Email sent" }
     } catch (error) {
-        console.error("Error sending event cancellation email:", error)
+        console.error("❌ Error sending event cancellation email:", error)
         return { status: "error", msg: "Failed to send email", error }
     }
 }
@@ -293,6 +386,9 @@ module.exports = {
     sendStaffAccountMail,
     sendGuestBookingMail,
     sendGuestCancellationMail,
-    sendGuestEventMail,
-    sendGuestEventCancellationMail
+    sendGuestEventRequestMail,
+    sendGuestEventCancellationMail,
+    sendGuestEventApprovalMail,
+    sendGuestEventRejectionMail,
+    sendGuestEventCompletionMail
 }
