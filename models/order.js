@@ -11,7 +11,7 @@ const orderSchema = new mongoose.Schema({
             price: Number
         }
     ],
-    status: {type: String, enum: ["Order Placed", "Preparing", "Served", "Delivered", "Cancelled"],
+    status: {type: String, enum: ["Order Placed", "Preparing", "Order Served", "Order Delivered", "Order Cancelled"],
         default: "Order Placed"
     },
     room: String, 
