@@ -139,7 +139,7 @@ router.post('/cancel', verifyToken, async (req, res) => {
             return res.status(400).send({ status: 'error', msg: 'Only pending orders can be cancelled' })
         }
 
-        order.status = 'Cancelled'
+        order.status = 'Order Cancelled'
         await order.save()
 
         return res.status(200).send({ status: 'success', msg: 'Order cancelled successfully', order })
