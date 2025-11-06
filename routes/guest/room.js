@@ -89,7 +89,7 @@ router.post('/filter', async (req, res) => {
 
         // Step 1: Build filter query for MongoDB
         const query = {}
-        if (category) query.category = category
+        if (category && category.toLowerCase() !== "all") query.category = category
         if (status) query.status = status
         if (minPrice && maxPrice) query.price = { $gte: minPrice, $lte: maxPrice }
         else if (minPrice) query.price = { $gte: minPrice }
