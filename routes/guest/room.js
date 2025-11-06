@@ -123,7 +123,7 @@ router.post('/filter', async (req, res) => {
     }
 
     try {
-        const rooms = await Room.find(query).select('type description images price capacity amenities')
+        const rooms = await Room.find(query).select('name type description images price capacity amenities')
         if (!rooms.length) {
             return res.status(200).send({ status: 'ok', msg: 'No rooms match the filter' })
         }
