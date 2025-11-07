@@ -55,15 +55,15 @@ router.post('/reserve', verifyToken, async (req, res) => {
         )
 
         return res.status(201).send({
-            status: 'success',
-            msg: 'Event request submitted successfully. Awaiting approval from management.',
+            status: 'ok',
+            msg: 'success',
             event: newEvent
         })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error submitting event request', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -78,9 +78,9 @@ router.post('/all', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'You have not made any event requests yet.' })
         }
 
-        return res.status(200).send({ status: 'success', events })
+        return res.status(200).send({ status: 'ok', events })
     } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error fetching your events', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -95,9 +95,9 @@ router.post('/view', verifyToken, async (req, res) => {
         .populate('hall', 'name location hall_type amount') // optional populate
         if (!event) return res.status(404).send({ status: 'error', msg: 'Event not found.' })
 
-        return res.status(200).send({ status: 'success', event })
+        return res.status(200).send({ status: 'ok', event })
     } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error fetching event details', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -115,9 +115,9 @@ router.post('/filter', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: `No ${status.toLowerCase()} events found.` })
         }
 
-        return res.status(200).send({ status: 'success', events })
+        return res.status(200).send({ status: 'ok', events })
     } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error filtering events', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -141,9 +141,9 @@ router.post('/search', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'No matching events found.' })
         }
 
-        return res.status(200).send({ status: 'success', events })
+        return res.status(200).send({ status: 'ok', events })
     } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error searching events', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -173,9 +173,9 @@ router.post('/cancel', verifyToken, async (req, res) => {
             event.status
         )
 
-        return res.status(200).send({ status: 'success', msg: 'Event cancelled successfully.' })
+        return res.status(200).send({ status: 'ok', msg: 'success' })
     } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error cancelling event', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 

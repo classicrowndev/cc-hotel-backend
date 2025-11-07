@@ -56,7 +56,7 @@ router.post('/create', verifyToken, async (req, res) => {
             room.name, room.type, checkInDate, checkOutDate, no_of_guests, amount
         )
 
-        return res.status(200).send({ status: 'success', msg: 'Room booked successfully and confirmation email sent',
+        return res.status(200).send({ status: 'ok', msg: 'success',
             booking
         })
 
@@ -64,7 +64,7 @@ router.post('/create', verifyToken, async (req, res) => {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error creating booking', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -78,7 +78,7 @@ router.post('/all', verifyToken, async (req, res) => {
             .sort({ timestamp: -1 })
 
         if (!bookings.length) {
-            return res.status(200).send({ status: 'ok', msg: 'No bookings found for this guest.' })
+            return res.status(200).send({ status: 'ok', msg: 'No bookings found.' })
         }
 
         return res.status(200).send({ status: 'success', bookings })
@@ -86,7 +86,7 @@ router.post('/all', verifyToken, async (req, res) => {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error fetching bookings.', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred.', error: e.message })
     }
 })
 
@@ -116,7 +116,7 @@ router.post('/view', verifyToken, async (req, res) => {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error fetching booking.', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred.', error: e.message })
     }
 })
 
@@ -160,12 +160,12 @@ router.post('/cancel', verifyToken, async (req, res) => {
             booking.room_no
     )
 
-        return res.status(200).send({ status: 'success', msg: 'Booking cancelled and email sent', booking })
+        return res.status(200).send({ status: 'ok', msg: 'success', booking })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error cancelling booking.', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred.', error: e.message })
     }
 })
 

@@ -122,7 +122,7 @@ router.post('/edit', uploader.single('profile_img'), verifyToken, async (req, re
 
         return res.status(200).send({
             status: 'ok',
-            msg: 'Profile updated successfully',
+            msg: 'success',
             guest
         });
 
@@ -134,7 +134,7 @@ router.post('/edit', uploader.single('profile_img'), verifyToken, async (req, re
 
         return res.status(500).send({
             status: 'error',
-            msg: 'An error occurred while updating the profile',
+            msg: 'Error occurred',
             error: error.message
         })
     }
@@ -149,14 +149,14 @@ router.post('/view', verifyToken, async(req, res) =>{
         if(!guest)
             return res.status(200).send({status: 'ok', msg: 'No guest Found'})
 
-        return res.status(200).send({status: 'ok', msg: 'Successful', guest})
+        return res.status(200).send({status: 'ok', msg: 'success', guest})
         
     } catch (error) {
         console.log(error)
         if(error.name == "JsonWebTokenError")
             return res.status(400).send({status: 'error', msg: 'Invalid token'})
 
-        return res.status(500).send({status: 'error', msg:'An error occured'})
+        return res.status(500).send({status: 'error', msg:'Error occured'})
     }
 })
 

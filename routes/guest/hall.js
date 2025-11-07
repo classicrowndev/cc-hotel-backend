@@ -17,7 +17,7 @@ router.post('/all', async(req, res) => {
 
         return res.status(200).send({status: 'ok', halls})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Failed to retrieve halls', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
 })
 
@@ -39,7 +39,7 @@ router.post('/view', async(req, res) => {
         }
         return res.status(200).send({status: 'ok', hall})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Failed to retrieve the hall', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
 })
 
@@ -55,7 +55,7 @@ router.post('/available', async(req, res) => {
         }
         return res.status(200).send({status: 'ok', halls})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Failed to retrieve available halls', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
 })
 
@@ -77,7 +77,7 @@ router.post('/type', async(req, res) => {
         }
         return res.status(200).send({status: 'ok', halls})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Failed to retrieve halls', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
 })
 
@@ -108,7 +108,7 @@ router.post('/search', async(req, res) => {
 
         return res.status(200).send({status: 'ok', halls})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Error searching halls', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
 })
 

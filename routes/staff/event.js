@@ -123,15 +123,14 @@ router.post('/reject', verifyToken, async (req, res) => {
             return res.status(400).send({ status: 'error', msg: `Cannot reject an event that is already ${event.status}.` })
         }
 
-        event.status = 'Cancelled'
+        event.status = 'Rejected'
         await event.save()
 
         // Notify guest via email
         await sendGuestEventRejectionMail(
             event.guest.email,
             event.guest.fullname,
-            event.hall_name,
-            event.date,
+            event.event_name,
             reason || 'No reason provided.'
         )
 

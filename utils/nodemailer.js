@@ -238,19 +238,19 @@ const sendGuestEventApprovalMail = async (email, title, start_date, end_date, ha
 
 
 // Guest Event Rejected
-const sendGuestEventRejectionMail = async (email, title, reason) => {
+const sendGuestEventRejectionMail = async (email, fullName, eventName, reason) => {
     try {
         const info = await transport.sendMail({
             from: `"Classic Crown Hotel" <${process.env.MAIL_USER}>`,
             to: email,
-            subject: `Event Request Rejected: ${title}`,
+            subject: `Event Request Rejected: ${eventName}`,
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
                     <h2>Event Rejected ❌</h2>
-                    <p>Dear Guest,</p>
+                    <p>Dear ${fullName},</p>
                     <p>Unfortunately, your event request has been declined.</p>
                     <ul>
-                        <li><b>Event:</b> ${title}</li>
+                        <li><b>Event:</b> ${eventName}</li>
                         <li><b>Reason:</b> ${reason || "Not specified"}</li>
                     </ul>
                     <p>You may submit a new request or contact us for clarification.</p>

@@ -8,9 +8,9 @@ router.post("/all", async (req, res) => {
     try {
         const policies = await Policy.find().sort({ timestamp: -1 })
 
-        return res.status(200).send({ status: "ok", msg: "Policies retrieved successfully", policies })
+        return res.status(200).send({ status: "ok", msg: "success", policies })
     } catch (e) {
-        return res.status(500).send({ status: "error", msg: "Failed to fetch policies", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -36,7 +36,7 @@ router.post("/view", async (req, res) => {
 
         return res.status(200).send({ status: "ok", policy })
     } catch (e) {
-        return res.status(500).send({ status: "error", msg: "Failed to fetch policy", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 

@@ -54,12 +54,12 @@ router.post("/send", verifyToken, async (req, res) => {
 
         await transporter.sendMail(mailOptions);
 
-        return res.status(200).send({ status: "success", msg: "Message sent successfully. Our support team will reach out soon."})
+        return res.status(200).send({ status: "ok", msg: "success"})
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed." })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to send message.", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred.", error: e.message })
     }
 })
 
@@ -71,14 +71,14 @@ router.post("/all", verifyToken, async (req, res) => {
         .sort({ createdAt: -1 }).select("name email message createdAt")
 
         if (!messages.length) {
-            return res.status(200).send({ status: "ok", msg: "No messages found for this guest." })
+            return res.status(200).send({ status: "ok", msg: "No messages found." })
         }
 
-        return res.status(200).send({ status: "success", msg: "Messages retrieved successfully.", messages })
+        return res.status(200).send({ status: "ok", msg: "success.", messages })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed." })
-        } return res.status(500).send({ status: "error", msg: "Failed to fetch messages.", error: e.message })
+        } return res.status(500).send({ status: "error", msg: "Error occurred.", error: e.message })
     }
 })
 

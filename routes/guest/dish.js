@@ -9,12 +9,12 @@ router.post("/all", async (req, res) => {
         // Fetch all available dishes
         const dishes = await Dish.find({ status: "Available" }).sort({ date_added: -1})
         if (!dishes || dishes.length === 0) {
-            return res.status(200).send({status: 'ok', msg: 'No dishes available at the moment'})
+            return res.status(200).send({status: 'ok', msg: 'success'})
         }
 
         return res.status(200).send({status:'success', count: dishes.length, dishes})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Error fetching dishes', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
 })
 
@@ -36,7 +36,7 @@ router.post("/category", async (req, res) => {
 
         return res.status(200).send({ status: 'success', count: dishes.length, dishes})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Error fetching dishes by category', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
 })
 
@@ -58,7 +58,7 @@ router.post("/view", async (req, res) => {
 
         return res.status(200).send({status: 'success', dish})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Error fetching dish details', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
 })
 
@@ -84,7 +84,7 @@ router.post("/search", async (req, res) => {
 
         return res.status(200).send({status: 'ok', count: dishes.length, dishes})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Error searching dishes', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
 })
 
@@ -116,7 +116,7 @@ router.post('/filter', async (req, res) => {
 
         return res.status(200).send({ status: 'ok', dishes })
     } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error filtering rooms', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 

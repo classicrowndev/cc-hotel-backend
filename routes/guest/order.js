@@ -58,12 +58,12 @@ router.post('/place', verifyToken, async (req, res) => {
         })
 
         await order.save()
-        return res.status(200).send({ status: 'success', msg: 'Order placed successfully', order })
+        return res.status(200).send({ status: 'ok', msg: 'success', order })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error placing order', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -77,12 +77,12 @@ router.post('/all', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'No orders found for this guest' })
         }
 
-        return res.status(200).send({ status: 'success', count: orders.length, orders })
+        return res.status(200).send({ status: 'ok', msg: 'success', count: orders.length, orders })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error fetching orders', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -106,12 +106,12 @@ router.post('/view', verifyToken, async (req, res) => {
             return res.status(403).send({ status: 'error', msg: 'Unauthorized access to this order' })
         }
 
-        return res.status(200).send({ status: 'success', order })
+        return res.status(200).send({ status: 'ok', msg: 'success', order })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error fetching order', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -142,12 +142,12 @@ router.post('/cancel', verifyToken, async (req, res) => {
         order.status = 'Order Cancelled'
         await order.save()
 
-        return res.status(200).send({ status: 'success', msg: 'Order cancelled successfully', order })
+        return res.status(200).send({ status: 'ok', msg: 'success', order })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error cancelling order', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 

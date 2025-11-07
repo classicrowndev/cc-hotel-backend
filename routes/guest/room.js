@@ -17,7 +17,7 @@ router.post('/all', async(req, res) => {
 
         return res.status(200).send({status: 'ok', rooms})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Failed to retrieve rooms', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
 })
 
@@ -39,7 +39,7 @@ router.post('/view', async(req, res) => {
         }
         return res.status(200).send({status: 'ok', room})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Failed to retrieve the room', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Error occured', error: e.message})
     }  
 })
 
@@ -77,7 +77,7 @@ router.post('/type', async(req, res) => {
         }
         return res.status(200).send({status: 'ok', rooms})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Failed to retrieve rooms', error: e.message})
+        return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
 })
 
@@ -115,12 +115,12 @@ router.post('/filter', async (req, res) => {
         }
 
         // Step 5: Send successful response
-        return res.status(200).send({ status: 'success', msg: 'Rooms retrieved successfully', count: rooms.length, rooms }) 
+        return res.status(200).send({ status: 'ok', msg: 'success', count: rooms.length, rooms }) 
  
     } catch (error) {
         console.error(error)
         return res.status(500).send({
-            status: 'error', msg: 'An error occurred while fetching rooms', error: error.message
+            status: 'error', msg: 'Error occurred', error: error.message
        })
     }
 })
@@ -159,16 +159,16 @@ router.post('/check', async (req, res) => {
         if (overlappingBookings.length > 0) {
             // If already booked for the requested dates
             return res.status(200).send({ 
-                status: 'error', 
-                msg: 'Room is already booked for the selected dates.', 
+                status: 'ok', 
+                msg: 'Room is already booked.', 
                 roomStatus: 'Booked' 
             })
         }
 
         // If everything is clear
         return res.status(200).send({ 
-            status: 'success', 
-            msg: 'Room is available for booking.', 
+            status: 'ok', 
+            msg: 'success', 
             roomStatus: 'Available' 
         })
 
@@ -176,7 +176,7 @@ router.post('/check', async (req, res) => {
         console.error(error)
         return res.status(500).send({ 
             status: 'error', 
-            msg: 'Error checking room availability.', 
+            msg: 'Error occurred.', 
             error: error.message 
         })
     }

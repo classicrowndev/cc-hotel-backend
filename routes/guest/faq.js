@@ -16,7 +16,7 @@ router.post("/all", async (req, res) => {
         /*if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }*/
-        return res.status(500).send({ status: 'error', msg: "Failed to fetch FAQs", error: e.message })
+        return res.status(500).send({ status: 'error', msg: "Error occurred", error: e.message })
     }
 })
 
@@ -41,7 +41,7 @@ router.post("/view", async (req, res) => {
         /*if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }*/
-        return res.status(500).send({ status: 'error', msg: "Failed to fetch FAQ", error: e.message })
+        return res.status(500).send({ status: 'error', msg: "Error occurred", error: e.message })
     }
 })
 

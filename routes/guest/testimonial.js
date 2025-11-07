@@ -28,13 +28,13 @@ router.post('/create', verifyToken, async (req, res) => {
 
         await testimonial.save()
 
-        return res.status(200).send({status: 'success', msg: 'Testimonial submitted successfully.', testimonial})
+        return res.status(200).send({status: 'ok', msg: 'success', testimonial})
 
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error submitting testimonial', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -52,7 +52,7 @@ router.post('/all', async (req, res) => {
         return res.status(200).send({ status: 'ok', testimonials })
 
     } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error fetching testimonials.', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -73,7 +73,7 @@ router.post('/mine', verifyToken, async (req, res) => {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error fetching guest testimonials.', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 

@@ -54,7 +54,7 @@ router.post('/sign_up', async(req, res) =>{
             await sendOTP(email, fullname, verificationToken)
         }
 */
-        return res.status(200).send({ status: "ok", msg: "Account created successfully!"
+        return res.status(200).send({ status: "ok", msg: "success"
             /*msg: "Account created! Check your email to verify your account."*/, _id: guest._id
         })
         
@@ -62,7 +62,7 @@ router.post('/sign_up', async(req, res) =>{
         if(error.name == "JsonWebTokenError")
             return res.status(400).send({status: 'error', msg: 'Invalid token'})
     
-        return res.status(500).send({status: 'error', msg:'An error occured during registration.', error})
+        return res.status(500).send({status: 'error', msg:'An error occured.', error})
     }
 })
 
@@ -118,7 +118,7 @@ router.post('/sign_in', async(req, res) => {
         let guest = await Guest.findOne({ $or: conditions }).lean()
         if(!guest)
             return res.status(400).send({
-        status: 'error', msg:'No guest account found with the provided email or phone number'})
+        status: 'error', msg:'No account found with the provided email or phone number'})
 
         // check if guest's account has been verified
         /*
@@ -157,7 +157,7 @@ router.post('/sign_in', async(req, res) => {
         guest = await Guest.findOneAndUpdate({_id: guest._id}, {is_online: true}, {new: true}).lean()
 
         //send response
-        res.status(200).send({status: 'ok', msg: 'Login Successful', guest, token})
+        res.status(200).send({status: 'ok', msg: 'success', guest, token})
         
     } catch (error) {
         console.log(error)
@@ -173,7 +173,7 @@ router.post('/logout', verifyToken, async(req, res) => {
         // Set guest offline
         await Guest.findByIdAndUpdate(guestId, { is_online: false })
     
-        return res.status(200).send({ status: 'ok', msg: 'Logout Successful' })
+        return res.status(200).send({ status: 'ok', msg: 'success' })
 
     } catch (error) {
         console.log(error)
@@ -222,13 +222,13 @@ router.post('/change_password', verifyToken, async(req, res)=>{
         const updatePassword = await bcrypt.hash(confirm_new_password, 10)
         await Guest.findByIdAndUpdate(req.user._id, {password: updatePassword})
 
-        return res.status(200).send({status: 'successful', msg: 'Password successfully changed'})
+        return res.status(200).send({status: 'successful', msg: 'success'})
     } catch (error) {
         if(error.name === 'JsonWebTokenError'){
         console.log(error)
         return res.status(401).send({status: 'error', msg: 'Token Verification Failed', error: error.message})
 }
-      return res.status(500).send({status: 'error', msg: 'An error occured while changing password', error: error.message})}
+      return res.status(500).send({status: 'error', msg: 'An error occured', error: error.message})}
 })
 
 
@@ -254,7 +254,7 @@ router.post('/forgot_password', async (req, res) => {
         let guest = await Guest.findOne({ $or: conditions }).lean()
 
         if (!guest) {
-            return res.status(400).send({ status: 'error', msg: 'No guest account found with the provided email or phone' });
+            return res.status(400).send({ status: 'error', msg: 'No account found with the provided email or phone' });
         }
 
         // Create reset token (expires in 10 min)
@@ -267,7 +267,7 @@ router.post('/forgot_password', async (req, res) => {
         // Send email (or SMS later if implemented)
         await sendPasswordReset(guest.email || guest.phone_no, guest.fullname, resetToken)
 
-        return res.status(200).send({ status: 'ok', msg: 'Password reset link sent. Please check your email or phone.' })
+        return res.status(200).send({ status: 'ok', msg: 'success' })
 
     } catch (error) {
         console.error(error)
@@ -484,7 +484,7 @@ router.post('/delete', verifyToken, async(req, res) => {
         if(!deleted)
             return res.status(400).send({status: 'error', msg: 'No guest Found'})
 
-        return res.status(200).send({status: 'ok', msg: 'Account Successfully deleted'})
+        return res.status(200).send({status: 'ok', msg: 'success'})
 
     } catch (error) {
         console.log(error)
