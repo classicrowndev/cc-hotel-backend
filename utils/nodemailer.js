@@ -16,7 +16,7 @@ const transport = nodemailer.createTransport({
 const sendPasswordReset = async (email, fullname, resetPasswordCode) => {
     try {
         const info = await transport.sendMail({
-            from: `"Hotel Reservations" <${process.env.MAIL_USER}>`,
+            from: `"Classic Crown Hotel"  <${process.env.MAIL_USER}>`,
             to: email,
             subject: "Reset your password",
             html: `<div>
@@ -53,7 +53,7 @@ const sendPasswordReset = async (email, fullname, resetPasswordCode) => {
 const sendPasswordResetStaff = async (email, fullname, resetPasswordCode) => {
     try {
         const mailOptions = {
-            from: `"Hotel Reservations" <${process.env.MAIL_USER}>`, // full email address
+            from: `"Classic Crown Hotel"  <${process.env.MAIL_USER}>`, // full email address
             to: email,
             subject: "Staff Reset Password",
             html: `
@@ -119,7 +119,7 @@ const sendGuestBookingMail = async (
     email, fullname, roomName, roomType, checkInDate, checkOutDate, noOfGuests, amount) => {
         try {
             const info = await transport.sendMail({
-                from: `"Hotel Reservations" <${process.env.MAIL_USER}>`,
+                from: `"Classic Crown Hotel"  <${process.env.MAIL_USER}>`,
                 to: email,
                 subject: "Room Booking Confirmation",
                 html: `
@@ -155,7 +155,7 @@ const sendGuestBookingMail = async (
 const sendGuestBookingStatusMail = async (email, fullname, roomName, status) => {
     try {
         const info = await transport.sendMail({
-            from: `"Hotel Reservations" <${process.env.MAIL_USER}>`,
+            from: `"Classic Crown Hotel" <${process.env.MAIL_USER}>`,
             to: email,
             subject: `Booking Status Updated: ${status}`,
             html: `
@@ -183,7 +183,7 @@ const sendGuestBookingStatusMail = async (email, fullname, roomName, status) => 
 const sendGuestBookingCancellationMail = async (email, fullname, roomName) => {
     try {
         const info = await transport.sendMail({
-            from: `"Hotel Reservations" <${process.env.MAIL_USER}>`,
+            from: `"Classic Crown Hotel"  <${process.env.MAIL_USER}>`,
             to: email,
             subject: "Booking Cancelled",
             html: `
@@ -321,16 +321,16 @@ const sendGuestEventCompletionMail = async (email, title, hall_name, end_date) =
 // };
 
 // Guest Event Request Received
-const sendGuestEventRequestMail = async (guest, event_name, date) => {
+const sendGuestEventRequestMail = async (email, fullname, event_name, date) => {
     try {
         const info = await transport.sendMail({
-            from: `"Hotel Events" <${process.env.MAIL_USER}>`,
-            to: guest.email,
+            from: `"Classic Crown Hotel"  <${process.env.MAIL_USER}>`,
+            to: email,
             subject: `Event Booking Request Received - ${event_name}`,
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
                     <h2>Event Reservation Request Received 🎉</h2>
-                    <p>Dear ${guest.fullname || "Guest"},</p>
+                    <p>Dear ${fullname || "Guest"},</p>
                     <p>Your request for the event <b>${event_name}</b> has been successfully recorded.</p>
                     <ul>
                         <li><b>Date:</b> ${new Date(date).toDateString()}</li>
@@ -353,19 +353,27 @@ const sendGuestEventRequestMail = async (guest, event_name, date) => {
 
 
 // Guest Event Request Cancellation
-const sendGuestEventCancellationMail = async (guest, hall, date) => {
+const sendGuestEventCancellationMail = async (email, fullname, hallName, date, status) => {
     try {
+        // Pick the best phrase depending on approval status
+        if (hallName) {
+            hallLabel = hallName
+        } else if (status === "Pending") {
+            hallLabel = "your pending event request"
+        } else {
+            hallLabel = "your event"
+        }
+
         const info = await transport.sendMail({
-            from: `"Hotel Events" <${process.env.MAIL_USER}>`,
-            to: guest.email,
+            from: `"Classic Crown Hotel"  <${process.env.MAIL_USER}>`,
+            to: email,
             subject: "Event Booking Request Cancelled",
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
                     <h2>Event Reservation Cancelled ❌</h2>
-                    <p>Dear ${guest.fullname || "Guest"},</p>
-                    <p>Your reservation for <b>${hall.name}</b> scheduled on <b>${new Date(date).toDateString()}</b> has been successfully cancelled.</p>
+                    <p>Dear ${fullname || "Guest"},</p>
+                    <p>Your reservation for <b>${hallLabel}</b> scheduled on <b>${new Date(date).toDateString()}</b> has been successfully cancelled.</p>
                     <p>If this was a mistake, you can make a new booking anytime through our events page.</p>
-                    <br/>
                     <p>Warm regards,<br/>Hotel Events Team</p>
                 </div>
             `,

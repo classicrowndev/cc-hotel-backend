@@ -20,7 +20,7 @@ router.post('/reserve', verifyToken, async (req, res) => {
             return res.status(400).send({ status: 'error', msg: 'Event name, date and duration are required.' })
         }
 
-        const guestId = req.user.id
+        const guestId = req.user._id
 
         const guest = await Guest.findById(guestId);
         if (!guest) return res.status(404).send({ status: 'error', msg: 'Guest not found.' })
@@ -71,7 +71,7 @@ router.post('/reserve', verifyToken, async (req, res) => {
 // VIEW ALL EVENTS (OWNED BY GUEST)
 router.post('/all', verifyToken, async (req, res) => {
     try {
-        const guestId = req.user.id
+        const guestId = req.user._id
         const events = await Event.find({ guest: guestId }).sort({ timestamp: -1 })
 
         if (events.length === 0) {
@@ -108,7 +108,7 @@ router.post('/filter', verifyToken, async (req, res) => {
     if (!status) return res.status(400).send({ status: 'error', msg: 'Status is required.' })
 
     try {
-        const guestId = req.user.id
+        const guestId = req.user._id
         const events = await Event.find({ guest: guestId, status }).sort({ timestamp: -1 })
 
         if (events.length === 0) {
@@ -169,7 +169,8 @@ router.post('/cancel', verifyToken, async (req, res) => {
             guest.email,
             guest.fullname,
             event.hall_name,
-            event.date
+            event.date,
+            event.status
         )
 
         return res.status(200).send({ status: 'success', msg: 'Event cancelled successfully.' })
