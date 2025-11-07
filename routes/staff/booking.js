@@ -74,13 +74,11 @@ router.post('/create', verifyToken, async (req, res) => {
             amount
         )
 
-        return res.status(200).send({ status: 'success', msg: 'Booking created successfully and confirmation email sent.',
-            booking
-        })
+        return res.status(200).send({ status: 'ok', msg: 'success', booking })
     } catch (e) {
         if (e.name === "JsonWebTokenError")
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token.' })
-        return res.status(500).send({ status: 'error', msg: 'Error creating booking.', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -101,12 +99,12 @@ router.post('/all', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'No bookings found yet.' })
         }
 
-        return res.status(200).send({ status: 'success', bookings })
+        return res.status(200).send({ status: 'ok', bookings })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token.' })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error fetching bookings.', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -129,11 +127,11 @@ router.post('/view', verifyToken, async (req, res) => {
         if (!booking)
             return res.status(400).send({ status: 'error', msg: 'Booking not found.' })
 
-        return res.status(200).send({ status: 'success', booking })
+        return res.status(200).send({ status: 'ok', booking })
     } catch (e) {
         if (e.name === 'JsonWebTokenError')
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token.' })
-        return res.status(500).send({ status: 'error', msg: 'Error fetching booking details.', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -175,14 +173,14 @@ router.post('/update-status', verifyToken, async (req, res) => {
         )
 
         return res.status(200).send({
-            status: 'success',
-            msg: `Booking status updated to ${status} and email sent.`,
+            status: 'ok',
+            msg: 'success',
             booking
         })
     } catch (e) {
         if (e.name === 'JsonWebTokenError')
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token.' })
-        return res.status(500).send({ status: 'error', msg: 'Error updating booking status.', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -208,11 +206,11 @@ router.post('/delete', verifyToken, async (req, res) => {
             await room.save()
         }
 
-        return res.status(200).send({ status: 'success', msg: 'Booking deleted successfully.' })
+        return res.status(200).send({ status: 'ok', msg: 'success' })
     } catch (e) {
         if (e.name === 'JsonWebTokenError')
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token.' })
-        return res.status(500).send({ status: 'error', msg: 'Error deleting booking.', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -244,7 +242,7 @@ router.post('/search', verifyToken, async (req, res) => {
     } catch (e) {
         if (e.name === 'JsonWebTokenError')
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token.' })
-        return res.status(500).send({ status: 'error', msg: 'Error searching bookings.', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 

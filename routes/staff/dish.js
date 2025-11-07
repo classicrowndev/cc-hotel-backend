@@ -78,10 +78,10 @@ router.post('/add', verifyToken, uploader.array('images', 5), async (req, res) =
         })
 
         await dish.save()
-        return res.status(200).send({ status: 'success', msg: 'Dish added successfully', dish })
+        return res.status(200).send({ status: 'ok', msg: 'success', dish })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
-        return res.status(500).send({ status: 'error', msg: 'Error adding dish', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -98,12 +98,12 @@ router.post('/all', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'No dishes found' })
         }
 
-        return res.status(200).send({ status: 'success', count: dishes.length, dishes })
+        return res.status(200).send({ status: 'ok', count: dishes.length, dishes })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error fetching dishes', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -123,12 +123,12 @@ router.post('/view', verifyToken, async (req, res) => {
         const dish = await Dish.findById(id)
         if (!dish) return res.status(404).send({ status: 'error', msg: 'Dish not found' })
 
-        return res.status(200).send({ status: 'success', dish })
+        return res.status(200).send({ status: 'ok', dish })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error fetching dish', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -176,12 +176,12 @@ router.post('/update', verifyToken, uploader.array('images', 5), async (req, res
             return res.status(404).send({ status: 'error', msg: 'Dish not found' })
         }
 
-        return res.status(200).send({ status: 'success', msg: 'Dish updated successfully', dish: updatedDish })
+        return res.status(200).send({ status: 'ok', msg: 'success', dish: updatedDish })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error updating dish', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -204,12 +204,12 @@ router.post('/delete', verifyToken, async (req, res) => {
             return res.status(404).send({ status: 'error', msg: 'Dish not found or already deleted' })
         }
 
-        return res.status(200).send({ status: 'success', msg: 'Dish deleted successfully' })
+        return res.status(200).send({ status: 'ok', msg: 'success' })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error deleting dish', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -234,12 +234,12 @@ router.post('/update_status', verifyToken, async (req, res) => {
             return res.status(404).send({ status: 'error', msg: 'Dish not found' })
         }
 
-        return res.status(200).send({ status: 'success', msg: `Dish status updated to ${status}`, dish: updated })
+        return res.status(200).send({ status: 'ok', msg: 'success', dish: updated })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error updating dish status', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -255,12 +255,12 @@ router.post('/overview', verifyToken, async (req, res) => {
         const unavailable = await Dish.countDocuments({ status: 'Unavailable' })
         const total_drinks = await Dish.countDocuments({ category: { $in: ['Bar & Drinks', 'Beverages'] } })
 
-        return res.status(200).send({ status: 'success', overview: { total, available, unavailable, total_drinks }})
+        return res.status(200).send({ status: 'ok', overview: { total, available, unavailable, total_drinks }})
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error fetching overview', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -285,12 +285,12 @@ router.post('/search', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'No dishes match your search' })
         }
 
-        return res.status(200).send({ status: 'success', count: dishes.length, dishes })
+        return res.status(200).send({ status: 'ok', count: dishes.length, dishes })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error searching dishes', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 

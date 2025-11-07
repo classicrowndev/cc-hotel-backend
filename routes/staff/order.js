@@ -67,12 +67,12 @@ router.post('/add', verifyToken, async (req, res) => {
         })
 
         await newOrder.save()
-        return res.status(200).send({ status: 'success', msg: 'Order added successfully', order: newOrder })
+        return res.status(200).send({ status: 'ok', msg: 'success', order: newOrder })
     } catch (e) {
         if (e.name === 'JsonWebTokenError')
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token', error: e.message })
 
-        return res.status(500).send({ status: 'error', msg: 'Error adding order', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -87,12 +87,12 @@ router.post('/all', verifyToken, async (req, res) => {
         const orders = await Order.find().sort({ order_date: -1 })
         if (!orders.length) return res.status(200).send({ status: 'ok', msg: 'No orders found' })
 
-        return res.status(200).send({ status: 'success', count: orders.length, orders })
+        return res.status(200).send({ status: 'ok', count: orders.length, orders })
     } catch (e) {
         if (e.name === 'JsonWebTokenError')
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token', error: e.message })
 
-        return res.status(500).send({ status: 'error', msg: 'Error fetching orders', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -111,12 +111,12 @@ router.post('/view', verifyToken, async (req, res) => {
         const order = await Order.findById(id)
         if (!order) return res.status(404).send({ status: 'error', msg: 'Order not found' })
 
-        return res.status(200).send({ status: 'success', order })
+        return res.status(200).send({ status: 'ok', order })
     } catch (e) {
         if (e.name === 'JsonWebTokenError')
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token', error: e.message })
 
-        return res.status(500).send({ status: 'error', msg: 'Error fetching order', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -140,12 +140,12 @@ router.post('/update_status', verifyToken, async (req, res) => {
         if (!updatedOrder)
             return res.status(404).send({ status: 'error', msg: 'Order not found' })
 
-        return res.status(200).send({ status: 'success', msg: `Order status updated to ${status}`, order: updatedOrder })
+        return res.status(200).send({ status: 'ok', msg: 'success', order: updatedOrder })
     } catch (e) {
         if (e.name === 'JsonWebTokenError')
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token', error: e.message })
 
-        return res.status(500).send({ status: 'error', msg: 'Error updating order status', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -165,12 +165,12 @@ router.post('/delete', verifyToken, async (req, res) => {
         if (!deleted)
             return res.status(404).send({ status: 'error', msg: 'Order not found or already deleted' })
 
-        return res.status(200).send({ status: 'success', msg: 'Order deleted successfully' })
+        return res.status(200).send({ status: 'ok', msg: 'success' })
     } catch (e) {
         if (e.name === 'JsonWebTokenError')
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token', error: e.message })
 
-        return res.status(500).send({ status: 'error', msg: 'Error deleting order', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -195,12 +195,12 @@ router.post('/filter', verifyToken, async (req, res) => {
         if (!orders.length)
             return res.status(200).send({ status: 'ok', msg: 'No orders found matching filter' })
 
-        return res.status(200).send({ status: 'success', count: orders.length, orders })
+        return res.status(200).send({ status: 'ok', count: orders.length, orders })
     } catch (e) {
         if (e.name === 'JsonWebTokenError')
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token', error: e.message })
 
-        return res.status(500).send({ status: 'error', msg: 'Error filtering orders', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 

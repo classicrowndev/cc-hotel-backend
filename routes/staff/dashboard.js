@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 
-const jwt = require('jsonwebtoken')
+const verifyToken = require('../../middleware/verifyToken')
 
 // Import models
 const Room = require('../../models/room')
@@ -11,16 +11,8 @@ const ServiceRequest = require('../../models/serviceRequest')
 const Order = require('../../models/order')
 
 // Dashboard Overview + Recent Activities
-router.post('/overview', async (req, res) => {
-    const { token } = req.body
-
-    if (!token)
-        return res.status(400).send({ status: 'error', msg: 'Token must be provided' })
-
+router.post('/overview', verifyToken, async (req, res) => {
     try {
-        // Verify staff token
-        const staff = jwt.verify(token, process.env.JWT_SECRET)
-
         // Restrict dashboard access to Owner & Admin
         if (!['Owner', 'Admin'].includes(staff.role)) {
             return res.status(400).send({ status: 'error', msg: 'Access denied: insufficient privileges' })
@@ -138,15 +130,15 @@ router.post('/overview', async (req, res) => {
 
         // RETURN DASHBOARD DATA
         return res.status(200).send({
-            status: 'success',
-            msg: 'Dashboard overview fetched successfully',
+            status: 'ok',
+            msg: 'success',
             data: responseData
         })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error fetching dashboard data', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 

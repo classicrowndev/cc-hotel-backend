@@ -55,13 +55,13 @@ router.post("/send", async (req, res) => {
 
         await transporter.sendMail(mailOptions)
 
-        return res.status(200).send({ status: "success", msg: "Message sent successfully. Admin will respond soon." })
+        return res.status(200).send({ status: "ok", msg: "success" })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed." })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to send message.", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -81,13 +81,13 @@ router.post("/all", async (req, res) => {
 
         if (!messages.length) return res.status(200).send({ status: "ok", msg: "No messages found for this staff member." })
 
-        return res.status(200).send({ status: "success", msg: "Messages retrieved successfully.", messages })
+        return res.status(200).send({ status: "ok", msg: "success", messages })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed." })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to fetch messages.", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -106,13 +106,13 @@ router.get("/guest_messages", async (req, res) => {
 
         if (!guestMessages.length) return res.status(200).send({ status: "ok", msg: "No guest messages found." });
 
-        return res.status(200).send({ status: "success", msg: "Guest messages retrieved successfully.", guestMessages });
+        return res.status(200).send({ status: "ok", msg: "success", guestMessages });
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed." });
         }
-        return res.status(500).send({ status: "error", msg: "Failed to fetch guest messages.", error: e.message });
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message });
     }
 });
 
@@ -169,13 +169,13 @@ router.post("/reply", async (req, res) => {
 
         await transporter.sendMail(mailOptions);
 
-        return res.status(200).send({ status: "success", msg: "Reply sent to guest successfully." })
+        return res.status(200).send({ status: "ok", msg: "success" })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed." })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to send reply.", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 

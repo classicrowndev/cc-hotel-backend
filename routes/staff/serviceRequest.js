@@ -28,13 +28,13 @@ router.post("/all", async (req, res) => {
             return res.status(200).send({ status: "ok", msg: "No service requests found" })
         }
 
-        return res.status(200).send({ status: "success", requests })
+        return res.status(200).send({ status: "ok", requests })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to fetch service requests", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -61,13 +61,13 @@ router.post("/view", async (req, res) => {
             return res.status(404).send({ status: "error", msg: "Service request not found" })
         }
 
-        return res.status(200).send({ status: "success", request })
+        return res.status(200).send({ status: "ok", request })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to fetch service request", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -92,13 +92,13 @@ router.post("/update_status", async (req, res) => {
             return res.status(404).send({ status: "error", msg: "Service request not found" })
         }
 
-        return res.status(200).send({ status: "success", msg: "Request status updated successfully", updated })
+        return res.status(200).send({ status: "ok", msg: "success", updated })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to update service request", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -123,13 +123,13 @@ router.post("/delete", async (req, res) => {
             return res.status(404).send({ status: "error", msg: "Service request not found" })
         }
 
-        return res.status(200).send({ status: "success", msg: "Service request deleted successfully" })
+        return res.status(200).send({ status: "ok", msg: "success", deleted })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to delete service request", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 

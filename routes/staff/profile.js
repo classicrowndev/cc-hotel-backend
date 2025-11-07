@@ -68,7 +68,7 @@ router.post('/edit', uploader.single('profile_img'), verifyToken, async (req, re
             { new: true }
         ).lean()
 
-        return res.status(200).send({ status: 'ok', msg: 'Staff Profile updated successfully', staff })
+        return res.status(200).send({ status: 'ok', msg: 'success', staff })
 
     } catch (error) {
         console.error(error)
@@ -76,7 +76,7 @@ router.post('/edit', uploader.single('profile_img'), verifyToken, async (req, re
         if (error.name === "JsonWebTokenError")
             return res.status(400).send({ status: 'error', msg: 'Invalid token' })
 
-        return res.status(500).send({status: 'error', msg: 'An error occurred while updating the profile', error: error.message
+        return res.status(500).send({status: 'error', msg: 'Error occurred', error: error.message
         })
     }
 })
@@ -89,14 +89,14 @@ router.post('/view', verifyToken, async (req, res) => {
         if (!staff)
             return res.status(404).send({ status: 'error', msg: 'Staff not found' })
 
-        return res.status(200).send({ status: 'success', msg: 'Profile fetched successfully', staff })
+        return res.status(200).send({ status: 'ok', msg: 'success', staff })
 
     } catch (error) {
         console.error(error)
         if (error.name === "JsonWebTokenError")
             return res.status(400).send({ status: 'error', msg: 'Invalid token' })
 
-        return res.status(500).send({ status: 'error', msg: 'An error occurred while fetching the profile', error: error.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: error.message })
     }
 })
 

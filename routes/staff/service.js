@@ -35,13 +35,13 @@ router.post("/add", verifyToken, async (req, res) => {
         })
 
         await newService.save()
-        return res.status(200).send({ status: "ok", msg: "Service added successfully", newService })
+        return res.status(200).send({ status: "ok", msg: "success", newService })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to add service", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -59,13 +59,13 @@ router.post("/update", verifyToken, async (req, res) => {
         const updatedService = await Service.findByIdAndUpdate(id, updateData, { new: true })
         if (!updatedService) return res.status(404).send({ status: "error", msg: "Service not found" })
 
-        return res.status(200).send({ status: "ok", msg: "Service updated successfully", updatedService })
+        return res.status(200).send({ status: "ok", msg: "success", updatedService })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to update service", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -86,7 +86,7 @@ router.post("/all", verifyToken, async (req, res) => {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to fetch services", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -111,7 +111,7 @@ router.post("/view", verifyToken, async (req, res) => {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to fetch service", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -130,13 +130,13 @@ router.post("/delete", verifyToken, async (req, res) => {
         const deletedService = await Service.findByIdAndDelete(id)
         if (!deletedService) return res.status(404).send({ status: "error", msg: "Service not found" })
 
-        return res.status(200).send({ status: "ok", msg: "Service deleted successfully", deletedService })
+        return res.status(200).send({ status: "ok", msg: "success", deletedService })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to delete service", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 

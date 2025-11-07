@@ -78,12 +78,12 @@ router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) =
         })
 
         await newRoom.save()
-        return res.status(200).send({ status: "success", msg: "Room added successfully", newRoom })
+        return res.status(200).send({ status: "ok", msg: "success", newRoom })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
     }
-        return res.status(500).send({ status: "error", msg: "Failed to add room", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -131,12 +131,12 @@ router.post("/update", verifyToken, uploader.array('images', 5), async (req, res
             return res.status(404).send({ status: "error", msg: "Room not found" })
         }
 
-        return res.status(200).send({ status: "success", msg: "Room updated successfully", updatedRoom })
+        return res.status(200).send({ status: "ok", msg: "success", updatedRoom })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to update room", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -161,12 +161,12 @@ router.post('/update_status', verifyToken, async (req, res) => {
             return res.status(404).send({ status: 'error', msg: 'Room not found' })
         }
 
-        return res.status(200).send({ status: 'success', msg: `Room status updated to ${availability}`, room: updated })
+        return res.status(200).send({ status: 'ok', msg: 'success', room: updated })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error updating room status', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -188,12 +188,12 @@ router.post("/all", verifyToken, async (req, res) => {
             return res.status(200).send({ status: "ok", msg: "No rooms found" })
         }
 
-        return res.status(200).send({ status: "success", count: rooms.length, rooms })
+        return res.status(200).send({ status: "ok", count: rooms.length, rooms })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Error fetching rooms", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -218,12 +218,12 @@ router.post("/view", verifyToken, async (req, res) => {
         if (!room){
             return res.status(404).send({ status: "error", msg: "Room not found" })
     }
-        return res.status(200).send({ status: "success", room })
+        return res.status(200).send({ status: "ok", room })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Error fetching room", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
@@ -259,7 +259,7 @@ router.post('/filter', verifyToken, async (req, res) => {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error filtering rooms', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -281,12 +281,12 @@ router.post("/delete", verifyToken, async (req, res) => {
             return res.status(404).send({ status: "error", msg: "Room not found or already deleted" })
         }
 
-        return res.status(200).send({ status: "success", msg: "Room deleted successfully", deletedRoom })
+        return res.status(200).send({ status: "ok", msg: "success", deletedRoom })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
         }
-        return res.status(500).send({ status: "error", msg: "Failed to delete room", error: e.message })
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 

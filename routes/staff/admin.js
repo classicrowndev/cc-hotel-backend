@@ -45,14 +45,14 @@ router.post('/create_staff', verifyToken, async (req, res) => {
 
         return res.status(201).send({
             status: 'ok',
-            msg: 'Staff account created successfully',
+            msg: 'success',
             data: {id: newStaff._id, fullname: newStaff.fullname, email: newStaff.email, phone_no: newStaff.phone_no,
                 role: newStaff.role
             }
         })
     } catch (error) {
         console.error('Error creating staff:', error)
-        return res.status(500).send({ status: 'error', msg: 'Server error while creating staff' })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred' })
     }
 })
 
@@ -72,7 +72,7 @@ router.post('/view_staffs', verifyToken, async (req, res) => {
         res.status(200).send({ status: 'ok', staffs })
     } catch (e) {
         console.error(e)
-        res.status(500).send({ status: 'error', msg: 'Failed to fetch staff accounts' })
+        res.status(500).send({ status: 'error', msg: 'Error occurred' })
     }
 })
 
@@ -98,7 +98,7 @@ router.post('/view_staff', verifyToken, async (req, res) => {
         return res.status(200).send({ status: 'ok', staff })
     } catch (e) {
         console.error(e)
-        return res.status(500).send({ status: 'error', msg: 'Error fetching staff details' })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred' })
     }
 })
 
@@ -120,10 +120,10 @@ router.post('/delete_staff', verifyToken, async (req, res) => {
             return res.status(404).send({ status: 'error', msg: 'Staff not found' })
         }
 
-        res.status(200).send({ status: 'ok', msg: 'Staff deleted successfully' })
+        res.status(200).send({ status: 'ok', msg: 'success' })
     } catch (error) {
         console.error(error)
-        res.status(500).send({ status: 'error', msg: 'Failed to delete staff' })
+        res.status(500).send({ status: 'error', msg: 'Error occurred' })
     }
 })
 
@@ -145,10 +145,10 @@ router.post('/block_staff', verifyToken, async (req, res) => {
             return res.status(404).send({ status: 'error', msg: 'Staff not found' })
         }
 
-        res.status(200).send({ status: 'ok', msg: 'Staff blocked successfully', blockedStaff })
+        res.status(200).send({ status: 'ok', msg: 'success', blockedStaff })
     } catch (error) {
         console.error(error)
-        res.status(500).send({ status: 'error', msg: 'Failed to block staff' })
+        res.status(500).send({ status: 'error', msg: 'Error occurred' })
     }
 })
 
@@ -171,10 +171,10 @@ router.post('/unblock_staff', verifyToken, async (req, res) => {
             return res.status(404).send({ status: 'error', msg: 'Staff not found' })
         }
 
-        res.status(200).send({ status: 'ok', msg: 'Staff unblocked successfully', unblockedStaff })
+        res.status(200).send({ status: 'ok', msg: 'success', unblockedStaff })
     } catch (error) {
         console.error(error)
-        res.status(500).send({ status: 'error', msg: 'Failed to unblock staff' })
+        res.status(500).send({ status: 'error', msg: 'Error occurred' })
     }
 })
 
@@ -193,7 +193,7 @@ router.get('/blocked_staffs', verifyToken, async (req, res) => {
         res.status(200).send({ status: 'ok', blockedStaffs })
     } catch (error) {
         console.error(error)
-        res.status(500).send({ status: 'error', msg: 'Failed to fetch blocked staff accounts' })
+        res.status(500).send({ status: 'error', msg: 'Error occurred' })
     }
 })
 

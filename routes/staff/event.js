@@ -39,7 +39,7 @@ router.post('/all', verifyToken, async (req, res) => {
         return res.status(200).send({ status: 'ok', events })
     } catch (e) {
         console.error('Error fetching events:', e);
-        return res.status(500).send({ status: 'error', msg: 'Failed to fetch events' })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -63,7 +63,7 @@ router.post('/view', verifyToken, async (req, res) => {
         return res.status(200).send({ status: 'ok', event })
     } catch (e) {
         console.error('Error fetching event:', e)
-        return res.status(500).send({ status: 'error', msg: 'Failed to fetch event details' })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -98,10 +98,10 @@ router.post('/approve', verifyToken, async (req, res) => {
             event.total_price
         )
 
-        return res.status(200).send({ status: 'ok', msg: 'Event approved successfully.', event })
+        return res.status(200).send({ status: 'ok', msg: 'success', event })
     } catch (e) {
         console.error('Error approving event:', e)
-        return res.status(500).send({ status: 'error', msg: 'Failed to approve event' })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred' })
     }
 })
 
@@ -134,10 +134,10 @@ router.post('/reject', verifyToken, async (req, res) => {
             reason || 'No reason provided.'
         )
 
-        return res.status(200).send({ status: 'ok', msg: 'Event request rejected successfully.' })
+        return res.status(200).send({ status: 'ok', msg: 'success' })
     } catch (e) {
         console.error('Error rejecting event:', e)
-        return res.status(500).send({ status: 'error', msg: 'Failed to reject event' })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred' })
     }
 })
 
@@ -162,10 +162,10 @@ router.post('/start', verifyToken, async (req, res) => {
         event.status = 'In Progress'
         await event.save()
 
-        return res.status(200).send({ status: 'ok', msg: 'Event marked as In Progress.', event })
+        return res.status(200).send({ status: 'ok', msg: 'success', event })
     } catch (e) {
         console.error('Error updating event status:', e)
-        return res.status(500).send({ status: 'error', msg: 'Failed to start event' })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred' })
     }
 })
 
@@ -197,10 +197,10 @@ router.post('/complete', verifyToken, async (req, res) => {
             event.date
         )
 
-        return res.status(200).send({ status: 'ok', msg: 'Event marked as completed successfully.', event })
+        return res.status(200).send({ status: 'ok', msg: 'success', event })
     } catch (e) {
         console.error('Error completing event:', e)
-        return res.status(500).send({ status: 'error', msg: 'Failed to complete event' })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred' })
     }
 })
 

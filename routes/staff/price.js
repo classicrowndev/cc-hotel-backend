@@ -32,9 +32,9 @@ router.post('/room', verifyToken, async (req, res) => {
         room.price = newPrice
         await room.save()
 
-        return res.status(200).send({ status: 'success', msg: `Room price updated to ₦${newPrice}`, room })
+        return res.status(200).send({ status: 'ok', msg: 'success', room })
     } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error updating Room price', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -53,9 +53,9 @@ router.post('/dish', verifyToken, async (req, res) => {
         dish.price = newPrice
         await dish.save()
 
-        return res.status(200).send({ status: 'success', msg: `Dish price updated to ₦${newPrice}`, dish })
+        return res.status(200).send({ status: 'ok', msg: 'success', dish })
     } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error updating Dish price', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -74,9 +74,9 @@ router.post('/event', verifyToken, async (req, res) => {
         event.price = newPrice
         await event.save()
 
-        return res.status(200).send({ status: 'success', msg: `Event price updated to ₦${newPrice}`, event })
+        return res.status(200).send({ status: 'ok', msg: 'success', event })
     } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error updating Event price', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
@@ -95,9 +95,9 @@ router.post('/service', verifyToken, async (req, res) => {
         service.price = newPrice
         await service.save()
 
-        return res.status(200).send({ status: 'success', msg: `Service price updated to ₦${newPrice}`, service })
+        return res.status(200).send({ status: 'ok', msg: 'success', service })
     } catch (e) {
-        return res.status(500).send({ status: 'error', msg: 'Error updating Service price', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
