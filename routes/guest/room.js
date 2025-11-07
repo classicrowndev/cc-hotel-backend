@@ -48,7 +48,7 @@ router.post('/view', async(req, res) => {
 router.post('/available', async(req, res) => {
     try {
         //Find room by ID
-        const rooms = await Room.find({ availability: "available" })
+        const rooms = await Room.find({ availability: "Available" })
 
         if (rooms.length === 0) {
             return res.status(200).send({status: "ok", msg: "No available rooms at the moment"})
@@ -122,6 +122,63 @@ router.post('/filter', async (req, res) => {
         return res.status(500).send({
             status: 'error', msg: 'An error occurred while fetching rooms', error: error.message
        })
+    }
+})
+
+
+// Check room availability for specific dates with detailed status
+router.post('/check', async (req, res) => {
+    const { room_id, checkInDate, checkOutDate } = req.body
+
+    if (!room_id || !checkInDate || !checkOutDate) {
+        return res.status(400).send({ status: 'error', msg: 'Room ID, check-in and check-out dates are required.' })
+    }
+
+    try {
+        const room = await Room.findById(room_id)
+        if (!room) {
+            return res.status(404).send({ status: 'error', msg: 'Room not found.' })
+        }
+
+        // If room is not available at all (maintenance, etc.)
+        if (room.availability !== 'Available') {
+            return res.status(200).send({ status: 'error',  msg: `Room is currently ${room.availability}.` })
+        }
+
+        // Check for overlapping active bookings
+        const overlappingBookings = await Booking.find({
+            room: room._id,
+            status: { $in: ['Booked', 'Checked-in'] },
+            $or: [
+                { checkInDate: { $lte: new Date(checkOutDate), $gte: new Date(checkInDate) } },
+                { checkOutDate: { $gte: new Date(checkInDate), $lte: new Date(checkOutDate) } },
+                { checkInDate: { $lte: new Date(checkInDate) }, checkOutDate: { $gte: new Date(checkOutDate) } }
+            ]
+        })
+
+        if (overlappingBookings.length > 0) {
+            // If already booked for the requested dates
+            return res.status(200).send({ 
+                status: 'error', 
+                msg: 'Room is already booked for the selected dates.', 
+                roomStatus: 'Booked' 
+            })
+        }
+
+        // If everything is clear
+        return res.status(200).send({ 
+            status: 'success', 
+            msg: 'Room is available for booking.', 
+            roomStatus: 'Available' 
+        })
+
+    } catch (error) {
+        console.error(error)
+        return res.status(500).send({ 
+            status: 'error', 
+            msg: 'Error checking room availability.', 
+            error: error.message 
+        })
     }
 })
 

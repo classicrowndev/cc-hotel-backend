@@ -141,6 +141,36 @@ router.post("/update", verifyToken, uploader.array('images', 5), async (req, res
 })
 
 
+// Update room status (Owner/Admin or Assigned Staff)
+router.post('/update_status', verifyToken, async (req, res) => {
+    const { id, availability } = req.body
+    if (!id || !availability) {
+        return res.status(400).send({ status: 'error', msg: 'Room ID and availability are required' })
+    }
+
+    if (!['Available', 'Booked', 'Checked-In', 'Under Maintenance'].includes(availability))
+        return res.status(400).send({ status: 'error', msg: 'Invalid available status' })
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'room')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
+    try {
+        const updated = await Room.findByIdAndUpdate(id, { availability, timestamp: Date.now() }, { new: true })
+        if (!updated) {
+            return res.status(404).send({ status: 'error', msg: 'Room not found' })
+        }
+
+        return res.status(200).send({ status: 'success', msg: `Room status updated to ${availability}`, room: updated })
+    } catch (e) {
+        if (e.name === 'JsonWebTokenError') {
+            return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
+        }
+        return res.status(500).send({ status: 'error', msg: 'Error updating room status', error: e.message })
+    }
+})
+
+
 // View all rooms (Owner/Admin or Assigned Staff)
 router.post("/all", verifyToken, async (req, res) => {
     if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'room')) {

@@ -17,8 +17,8 @@ const roomSchema = new mongoose.Schema({
     capacity: { type: Number, required: true },
     availability: {
         type: String,
-        enum: ["available", "occupied", "reserved", "maintenance"],
-        default: "available"
+        enum: ["Available", "Checked-In", "Booked", "Under Maintenance"],
+        default: "Available"
     },
     amenities: {
         type: [String],
