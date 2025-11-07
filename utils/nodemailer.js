@@ -151,9 +151,36 @@ const sendGuestBookingMail = async (
 }
 
 
+// Guest Booking Status Update
+const sendGuestBookingStatusMail = async (email, fullname, roomName, status) => {
+    try {
+        const info = await transport.sendMail({
+            from: `"Hotel Reservations" <${process.env.MAIL_USER}>`,
+            to: email,
+            subject: `Booking Status Updated: ${status}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Booking Status Update</h2>
+                    <p>Dear ${fullname},</p>
+                    <p>Your booking for <b>${roomName}</b> has been updated.</p>
+                    <p><b>New Status:</b> ${status}</p>
+                    <p>Thank you for choosing our services!</p>
+                    <p>Warm regards,<br/>Hotel Reservations Team</p>
+                </div>
+            `
+        })
+
+        console.log("Booking Status Email sent:", info.response)
+        return { status: "ok", msg: "Email sent" }
+    } catch (error) {
+        console.error("Error sending booking status email:", error)
+        return { status: "error", msg: "Failed to send email", error }
+    }
+}
+
 
 // Guest Booking Cancellation
-const sendGuestCancellationMail = async (email, fullname, roomName) => {
+const sendGuestBookingCancellationMail = async (email, fullname, roomName) => {
     try {
         const info = await transport.sendMail({
             from: `"Hotel Reservations" <${process.env.MAIL_USER}>`,
@@ -293,27 +320,23 @@ const sendGuestEventCompletionMail = async (email, title, hall_name, end_date) =
 //   }
 // };
 
-
-// Guest Event Booking Request
-const sendGuestEventRequestMail = async (guest, hall, date) => {
+// Guest Event Request Received
+const sendGuestEventRequestMail = async (guest, event_name, date) => {
     try {
         const info = await transport.sendMail({
             from: `"Hotel Events" <${process.env.MAIL_USER}>`,
             to: guest.email,
-            subject: `Event Hall Booking Confirmation - ${hall.name}`,
+            subject: `Event Booking Request Received - ${event_name}`,
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Event Reservation Confirmed 🎉</h2>
+                    <h2>Event Reservation Request Received 🎉</h2>
                     <p>Dear ${guest.fullname || "Guest"},</p>
-                    <p>Your reservation for <b>${hall.name}</b> has been successfully recorded.</p>
+                    <p>Your request for the event <b>${event_name}</b> has been successfully recorded.</p>
                     <ul>
                         <li><b>Date:</b> ${new Date(date).toDateString()}</li>
-                        <li><b>Location:</b> ${hall.location}</li>
-                        <li><b>Amount:</b> ₦${Number(hall.amount).toLocaleString()}</li>
-                        <li><b>Hall Type:</b> ${hall.hall_type}</li>
+                        <li><b>Status:</b> Pending Staff Approval</li>
                     </ul>
-                    <p>Status: <b>Pending Staff Approval</b></p>
-                    <p>Our management will review and confirm the request shortly.</p>
+                    <p>Our management team will review your request and assign a suitable hall shortly.</p>
                     <br/>
                     <p>Warm regards,<br/>Hotel Events Team</p>
                 </div>
@@ -329,13 +352,13 @@ const sendGuestEventRequestMail = async (guest, hall, date) => {
 }
 
 
-// Guest Event Booking Cancellation
+// Guest Event Request Cancellation
 const sendGuestEventCancellationMail = async (guest, hall, date) => {
     try {
         const info = await transport.sendMail({
             from: `"Hotel Events" <${process.env.MAIL_USER}>`,
             to: guest.email,
-            subject: "Event Reservation Cancelled",
+            subject: "Event Booking Request Cancelled",
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
                     <h2>Event Reservation Cancelled ❌</h2>
@@ -385,7 +408,8 @@ module.exports = {
     sendPasswordResetStaff,
     sendStaffAccountMail,
     sendGuestBookingMail,
-    sendGuestCancellationMail,
+    sendGuestBookingStatusMail,
+    sendGuestBookingCancellationMail,
     sendGuestEventRequestMail,
     sendGuestEventCancellationMail,
     sendGuestEventApprovalMail,

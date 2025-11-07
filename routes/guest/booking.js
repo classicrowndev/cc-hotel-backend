@@ -7,7 +7,7 @@ dotenv.config()
 const Booking = require('../../models/booking')
 const Room = require('../../models/room')
 const verifyToken = require('../../middleware/verifyToken') // your middleware
-const { sendGuestBookingMail, sendGuestCancellationMail } = require('../../utils/nodemailer')
+const { sendGuestBookingMail, sendGuestBookingCancellationMail } = require('../../utils/nodemailer')
 
 
 
@@ -155,7 +155,7 @@ router.post('/cancel', verifyToken, async (req, res) => {
         }
 
         // Send cancellation email
-        await sendGuestCancellationMail( booking.email,
+        await sendGuestBookingCancellationMail( booking.email,
             req.user.fullname, // or guest name
             booking.room_no
     )

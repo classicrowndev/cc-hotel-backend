@@ -4,22 +4,11 @@ const router = express.Router()
 const dotenv = require('dotenv')
 dotenv.config()
 
-const jwt = require('jsonwebtoken')
-const nodemailer = require("nodemailer");
 const Booking = require('../../models/booking')
 const Room = require('../../models/room')
 const Guest = require('../../models/guest')
 const verifyToken = require('../../middleware/verifyToken') // your middleware
-
-
-// Configure Nodemailer
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-})
+const { sendGuestBookingMail, sendGuestBookingStatusMail } = require('../../utils/nodemailer')
 
 //Helper to check role access
 const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
@@ -27,6 +16,7 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequire
         return false
     if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
         return false
+    return true
 }
 
 // Create a new booking/reservation manually (Staff creates on behalf of guest)
@@ -44,14 +34,14 @@ router.post('/create', verifyToken, async (req, res) => {
 
     try {
         const guest = await Guest.findById(guest_id)
-        if (!guest) return res.status(400).send({ status: 'error', msg: 'Guest not found.' })
-
         const room = await Room.findById(room_id)
-        if (!room) return res.status(400).send({ status: 'error', msg: 'Room not found.' })
+        if (!guest || !room) return res.status(400).send({ status: 'error', msg: 'Guest or Room not found.' })
 
         if (room.availability !== "available") {
             return res.status(400).send({ status: 'error', msg: 'Room is currently unavailable.' })
         }
+
+        const amount = room.price * duration
 
         const booking = new Booking({
             guest: guest._id,
@@ -64,6 +54,7 @@ router.post('/create', verifyToken, async (req, res) => {
             no_of_guests,
             checkInDate,
             checkOutDate,
+            status: 'Booked',
             timestamp: Date.now()
         })
 
@@ -71,34 +62,19 @@ router.post('/create', verifyToken, async (req, res) => {
         room.availability = "reserved"
         await room.save()
 
-        const mailOptions = {
-            from: `"Hotel Reservations" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: "Room Booking Confirmation",
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Room Booking Confirmed</h2>
-                    <p>Dear ${guest.fullname || 'Guest'},</p>
-                    <p>Your booking for <b>${room.name}</b> has been successfully confirmed.</p>
-                    <ul>
-                        <li><b>Room Type:</b> ${room.type}</li>
-                        <li><b>Check-in:</b> ${new Date(checkInDate).toDateString()}</li>
-                        <li><b>Check-out:</b> ${new Date(checkOutDate).toDateString()}</li>
-                        <li><b>Guests:</b> ${no_of_guests}</li>
-                        <li><b>Amount:</b> ₦${amount}</li>
-                    </ul>
-                    <p>Status: <b>Booked</b></p>
-                    <p>We look forward to hosting you!</p>
-                    <br/>
-                    <p>Warm regards,<br/>Hotel Management Team</p>
-                </div>
-            `
-        }
+        // Send booking confirmation email to the Guest
+        await sendGuestBookingMail(
+            guest.email,
+            guest.fullname,
+            room.name,
+            room.type,
+            checkInDate,
+            checkOutDate,
+            no_of_guests,
+            amount
+        )
 
-        await transporter.sendMail(mailOptions)
-        return res.status(200).send({
-            status: 'success',
-            msg: 'Booking created successfully and confirmation email sent.',
+        return res.status(200).send({ status: 'success', msg: 'Booking created successfully and confirmation email sent.',
             booking
         })
     } catch (e) {
@@ -185,27 +161,19 @@ router.post('/update-status', verifyToken, async (req, res) => {
         booking.timestamp = Date.now()
         await booking.save()
 
+        if (['Checked-out', 'Cancelled'].includes(status)) booking.room.availability = 'available'
+
         if (status === 'Checked-in') booking.room.availability = 'occupied'
-        if (status === 'Checked-out' || status === 'Cancelled') booking.room.availability = 'available'
         await booking.room.save()
 
-        const mailOptions = {
-            from: `"Hotel Management" <${process.env.EMAIL_USER}>`,
-            to: booking.email,
-            subject: `Booking Status Updated to ${status}`,
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px;">
-                    <h2>Booking Status Updated</h2>
-                    <p>Dear Guest,</p>
-                    <p>Your booking for <b>${booking.room_no}</b> has been updated.</p>
-                    <p><b>New Status:</b> ${status}</p>
-                    <br/>
-                    <p>Best Regards,<br/>Hotel Management Team</p>
-                </div>
-            `
-        }
+        // Send booking status email
+        await sendGuestBookingStatusMail(
+            booking.email,
+            booking.guest.fullname,
+            booking.room.name,
+            status
+        )
 
-        await transporter.sendMail(mailOptions)
         return res.status(200).send({
             status: 'success',
             msg: `Booking status updated to ${status} and email sent.`,

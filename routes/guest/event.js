@@ -14,10 +14,10 @@ const { sendGuestEventRequestMail, sendGuestEventCancellationMail } = require('.
 // GUEST REQUESTS TO RESERVE A HALL (PENDING APPROVAL)
 router.post('/reserve', verifyToken, async (req, res) => {
     try {
-        const { hallId, description, date, duration, start_time, end_time, additional_notes } = req.body
+        const { event_name, description, date, duration, start_time, end_time, additional_notes } = req.body
 
-        if (!hallId || !date || !duration) {
-            return res.status(400).send({ status: 'error', msg: 'Hall ID, date, and duration are required.' })
+        if (!event_name || !date || !duration) {
+            return res.status(400).send({ status: 'error', msg: 'Event name, date and duration are required.' })
         }
 
         const guestId = req.user.id
@@ -25,35 +25,19 @@ router.post('/reserve', verifyToken, async (req, res) => {
         const guest = await Guest.findById(guestId);
         if (!guest) return res.status(404).send({ status: 'error', msg: 'Guest not found.' })
 
-        const hall = await Hall.findById(hallId)
-        if (!hall) return res.status(404).send({ status: 'error', msg: 'Hall not found.' })
-
-        // Check if hall already has an event on that same date and time
-        const requestedDate = new Date(date)
-        const conflict = await Event.findOne({
-            hall: hall._id,
-            date: requestedDate,
-            status: { $in: ['Pending', 'Approved', 'In Progress'] }
-        })
-
-        if (conflict) {
-            return res.status(400).send({ status: 'error', msg: 'This hall is already requested or booked for that date.' })
-        }
-
-        // Calculate total price (for example: hall.amount * duration in hours)
-        const total_price = hall.amount * Number(duration)
 
         const newEvent = new Event({
             guest: guest._id,
-            hall: hall._id,
-            hall_name: hall.name,
-            description: description || `Booking request for ${hall.name}`,
-            total_price,
-            date: requestedDate,
+            event_name,
+            hall: null, // No hall yet, staff will assign upon approval
+            hall_name: null,
+            description: description || `Event request for ${event_name}`,
+            total_price: 0, // Calculated later
+            date: new Date(date),
             duration,
             start_time,
             end_time,
-            location: hall.location,
+            location: null,
             availability: true,
             status: 'Pending', // Waiting for staff approval
             additional_notes,
@@ -66,23 +50,20 @@ router.post('/reserve', verifyToken, async (req, res) => {
         await sendGuestEventRequestMail(
             guest.email,
             guest.fullname,
-            hall.name,
-            hall.location,
-            hall.amount,
-            hall.hall_type,
+            event_name,
             date
         )
 
         return res.status(201).send({
             status: 'success',
-            msg: 'Booking request submitted successfully. Awaiting approval from management.',
+            msg: 'Event request submitted successfully. Awaiting approval from management.',
             event: newEvent
         })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })
         }
-        return res.status(500).send({ status: 'error', msg: 'Error submitting booking request', error: e.message })
+        return res.status(500).send({ status: 'error', msg: 'Error submitting event request', error: e.message })
     }
 })
 
@@ -110,7 +91,8 @@ router.post('/view', verifyToken, async (req, res) => {
     if (!id) return res.status(400).send({ status: 'error', msg: 'Event ID is required.' })
 
     try {
-        const event = await Event.findById(id).populate('hall').populate('guest')
+        const event = await Event.findById(id).populate('guest')
+        .populate('hall', 'name location hall_type amount') // optional populate
         if (!event) return res.status(404).send({ status: 'error', msg: 'Event not found.' })
 
         return res.status(200).send({ status: 'success', event })
@@ -175,7 +157,7 @@ router.post('/cancel', verifyToken, async (req, res) => {
         const event = await Event.findById(id)
         if (!event) return res.status(404).send({ status: 'error', msg: 'Event not found.' })
 
-        if (['Completed', 'Cancelled'].includes(event.status)) {
+        if (!['Pending', 'Approved'].includes(event.status)) {
             return res.status(400).send({ status: 'error', msg: `Cannot cancel an event that is already ${event.status}.` })
         }
 

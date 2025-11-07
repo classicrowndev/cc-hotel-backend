@@ -2,10 +2,11 @@ const mongoose = require("mongoose")
 
 const eventSchema = new mongoose.Schema({
     guest: { type: mongoose.Schema.Types.ObjectId, ref: "Guest", required: true },
-    hall: { type: mongoose.Schema.Types.ObjectId, ref: "Hall", required: true },
-    hall_name: { type: String, required: true },
+    event_name: { type: String, required: true },
+    hall: { type: mongoose.Schema.Types.ObjectId, ref: "Hall" },
+    hall_name: String,
     description: String,
-    total_price: { type: Number, required: true },
+    total_price: { type: Number, default: 0 },
     date: Date,
     duration: String,
     start_time: String,
