@@ -18,7 +18,9 @@ const serviceSchema = new mongoose.Schema({
     status: {type: String, enum: ["Available", "Unavailable", "Under Maintenance"],
         default: "Available"
     },
-    image: String,
+    image: [
+        { img_id: String, img_url: String }
+    ],
     timestamp: Number
 }, { collection: 'services' })
 
