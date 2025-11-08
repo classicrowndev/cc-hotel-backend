@@ -11,6 +11,7 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequire
         return false
     if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
         return false
+    return true
 }
 
 
