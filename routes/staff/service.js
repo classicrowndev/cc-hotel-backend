@@ -17,7 +17,7 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequire
 
 // Add a new service (Only Owner or Admin)
 router.post("/add", verifyToken, async (req, res) => {
-    const { service_type, name, description, price, availability, status, image } = req.body
+    const { service_type, name, description, price, status, image } = req.body
 
     if (!checkRole(req.user, ['Owner', 'Admin'], 'service')) {
         return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add new service.' })
@@ -29,7 +29,6 @@ router.post("/add", verifyToken, async (req, res) => {
             name,
             description,
             price,
-            availability: availability ?? true,
             status: status || "Available",
             image,
             timestamp: Date.now()
@@ -46,7 +45,8 @@ router.post("/add", verifyToken, async (req, res) => {
     }
 })
 
-// Update service details (Ower & Admin full update; Receptionist limited)
+
+// Update service details (Only Owner & Admin)
 router.post("/update", verifyToken, async (req, res) => {
     const { id, ...updateData } = req.body
 
@@ -71,13 +71,18 @@ router.post("/update", verifyToken, async (req, res) => {
 })
 
 
-// View all services (All staff roles with login)
+// View all services (Owner/Admin or Assigned Staff)
 router.post("/all", verifyToken, async (req, res) => {
    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'service')) {
         return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
+        // Staff must be assigned to "service" task
+        if (req.user.role === "Staff" && req.user.task !== "service") {
+            return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to service operations." })
+        }
+
         const services = await Service.find().sort({ timestamp: -1 })
         if (services.length === 0) return res.status(200).send({ status: "ok", msg: "No services found" })
 
@@ -92,7 +97,7 @@ router.post("/all", verifyToken, async (req, res) => {
 })
 
 
-// View a specific service (All staff roles with login)
+// View a specific service (Owner/Admin or Assigned Staff)
 router.post("/view", verifyToken, async (req, res) => {
     const { id } = req.body
 
@@ -103,6 +108,11 @@ router.post("/view", verifyToken, async (req, res) => {
     }
 
     try {
+        // Staff must be assigned to "service" task
+        if (req.user.role === "Staff" && req.user.task !== "service") {
+            return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to service operations." })
+        }
+
         const service = await Service.findById(id)
         if (!service) return res.status(404).send({ status: "error", msg: "Service not found" })
 

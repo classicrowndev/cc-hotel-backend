@@ -1,24 +1,31 @@
 const express = require('express')
 const router = express.Router()
 
-const jwt = require('jsonwebtoken')
+const verifyToken = require('../../middleware/verifyToken')
 const ServiceRequest = require("../../models/serviceRequest")
 const Service = require("../../models/service")
 
 
-// Fetch all service requests
-router.post("/all", async (req, res) => {
-    const { token } = req.body
-    if (!token) {
-        return res.status(400).send({ status: "error", msg: "Token is required" })
+//Helper to check role access
+const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
+    if (!allowedRoles.includes(user.role))
+        return false
+    if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
+        return false
+    return true
+}
+
+
+// Fetch all service requests (Owner/Admin or Assigned Staff)
+router.post("/all", verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'serviceRequest')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ["Admin", "Manager", "Receptionist", "Concierge"]
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: "error", msg: "Access denied. Unauthorized role." })
+        // Staff must be assigned to "serviceRequest" task
+        if (req.user.role === "Staff" && req.user.task !== "serviceRequest") {
+            return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to service request operations." })
         }
 
         const requests = await ServiceRequest.find().populate("guest", "fullname email")
@@ -39,19 +46,21 @@ router.post("/all", async (req, res) => {
 })
 
 
-// View a specific service request
-router.post("/view", async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id) {
-        return res.status(400).send({ status: "error", msg: "Token and request ID are required" })
+// View a specific service request (Owner/Admin or Assigned Staff)
+router.post("/view", verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id) {
+        return res.status(400).send({ status: "error", msg: "Request ID is required" })
+    }
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'serviceRequest')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ["Admin", "Receptionist", "Concierge"]
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: "error", msg: "Access denied. Unauthorized role." })
+        // Staff must be assigned to "serviceRequest" task
+        if (req.user.role === "Staff" && req.user.task !== "serviceRequest") {
+            return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to service request operations." })
         }
 
         const request = await ServiceRequest.findById(id).populate("guest", "fullname email")
@@ -72,19 +81,21 @@ router.post("/view", async (req, res) => {
 })
 
 
-// Update request status
-router.post("/update_status", async (req, res) => {
-    const { token, id, status } = req.body
-    if (!token || !id || !status) {
-        return res.status(400).send({ status: "error", msg: "Token, request ID, and status are required" })
+// Update request status (Owner/Admin or Assigned Staff)
+router.post("/update_status", verifyToken, async (req, res) => {
+    const { id, status } = req.body
+    if (!id || !status) {
+        return res.status(400).send({ status: "error", msg: "Request ID and status are required" })
+    }
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'serviceRequest')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ["Admin", "Manager", "Receptionist", "Concierge"]
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: "error", msg: "Access denied. Unauthorized role." })
+        // Staff must be assigned to "serviceRequest" task
+        if (req.user.role === "Staff" && req.user.task !== "serviceRequest") {
+            return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to service request operations." })
         }
 
         const updated = await ServiceRequest.findByIdAndUpdate(id, { status }, { new: true })
@@ -103,19 +114,21 @@ router.post("/update_status", async (req, res) => {
 })
 
 
-// Delete a service request
-router.post("/delete", async (req, res) => {
-    const { token, id } = req.body
-    if (!token || !id) {
-        return res.status(400).send({ status: "error", msg: "Token and request ID are required" })
+// Delete a service request (Owner/Admin or Assigned Staff)
+router.post("/delete", verifyToken, async (req, res) => {
+    const { id } = req.body
+    if (!id) {
+        return res.status(400).send({ status: "error", msg: "Request ID is required" })
     }
 
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'serviceRequest')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+    
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-
-        const allowedRoles = ["Admin", "Manager"]
-        if (!allowedRoles.includes(decoded.role)) {
-            return res.status(403).send({ status: "error", msg: "Access denied. Unauthorized role." })
+        // Staff must be assigned to "serviceRequest" task
+        if (req.user.role === "Staff" && req.user.task !== "serviceRequest") {
+            return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to service request operations." })
         }
 
         const deleted = await ServiceRequest.findByIdAndDelete(id)
