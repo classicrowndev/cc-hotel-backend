@@ -24,7 +24,7 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequire
 
 // Add new dish (Owner/Admin only)
 router.post('/add', verifyToken, uploader.array('images', 5), async (req, res) => {
-    const { name, category, amount_per_portion, status, quantity } = req.body
+    const { name, category, amount_per_portion, isReady, quantity } = req.body
     if (!name || !category || amount_per_portion === undefined) {
         return res.status(400).send({ status: 'error', msg: 'Name, category and amount_per_portion are required' })
     }
@@ -69,7 +69,7 @@ router.post('/add', verifyToken, uploader.array('images', 5), async (req, res) =
         const dish = new Dish({
             name,
             category,
-            status: status || 'Available',
+            isReady: isReady === 'true' || isReady === true, // converts string "true" to boolean
             quantity: quantity ?? 0,
             amount_per_portion,
             images, // attach upload
@@ -214,22 +214,24 @@ router.post('/delete', verifyToken, async (req, res) => {
 })
 
 
-// Update dish status (Owner/Admin or Assigned Staff)
+// Update dish readiness (Owner/Admin or Assigned Staff)
 router.post('/update_status', verifyToken, async (req, res) => {
-    const { id, status } = req.body
-    if (!id || !status) {
-        return res.status(400).send({ status: 'error', msg: 'Dish ID and status are required' })
+    const { id, isReady } = req.body
+    if (!id || isReady === undefined) {
+        return res.status(400).send({ status: 'error', msg: 'Dish ID and readiness status are required' })
     }
 
-    if (!['Available', 'Unavailable'].includes(status))
-        return res.status(400).send({ status: 'error', msg: 'Invalid status' })
+    if (typeof isReady !== 'boolean') {
+        return res.status(400).send({ status: 'error', msg: 'Invalid readiness status' })
+    }
 
     if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'dish')) {
         return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
-        const updated = await Dish.findByIdAndUpdate(id, { status, timestamp: Date.now() }, { new: true })
+        const updated = await Dish.findByIdAndUpdate(id, 
+            { isReady: isReady === 'true' || isReady === true, timestamp: Date.now() }, { new: true })
         if (!updated) {
             return res.status(404).send({ status: 'error', msg: 'Dish not found' })
         }
@@ -251,8 +253,8 @@ router.post('/overview', verifyToken, async (req, res) => {
 
     try {
         const total = await Dish.countDocuments()
-        const available = await Dish.countDocuments({ status: 'Available' })
-        const unavailable = await Dish.countDocuments({ status: 'Unavailable' })
+        const available = await Dish.countDocuments({ isReady: true })
+        const unavailable = await Dish.countDocuments({ isReady: false })
         const total_drinks = await Dish.countDocuments({ category: { $in: ['Bar & Drinks', 'Beverages'] } })
 
         return res.status(200).send({ status: 'ok', overview: { total, available, unavailable, total_drinks }})

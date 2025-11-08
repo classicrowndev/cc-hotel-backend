@@ -9,7 +9,7 @@ const dishSchema = new mongoose.Schema({
             "Bar & Drinks", "Beverages", "Meat & Fish", "Snacks & Desserts"
         ]
     },
-    status: {type: String, enum: ["Available", "Unavailable"], default: "Available"},
+    isReady: { type: Boolean, default: false },
     quantity: {type: Number, default: 0},
     amount_per_portion: {type: Number, default: 0},
     images: [
