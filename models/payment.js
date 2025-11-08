@@ -13,6 +13,11 @@ const paymentSchema = new mongoose.Schema({
         enum: ['Pending', 'Success', 'Failed'],
         default: 'Pending'
     },
+    payment_method: {
+        type: String,
+        enum: ["Bank Transfer", "Cash Payment", "Debit Card", "Online Payment"],
+        required: true
+    },
     description: String,
     booking: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking' },
     order: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },

@@ -16,9 +16,6 @@ const orderSchema = new mongoose.Schema({
     },
     room: String, 
     amount: Number,
-    payment_method: {type: String, 
-        enum: ["Bank Transfer", "Cash payment", "Debit Card", "Online Order"],
-    }, 
     order_date: {type: Date, default: Date.now},
     timestamp: Number
 }, { collection: 'orders' })

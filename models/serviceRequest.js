@@ -6,11 +6,6 @@ const serviceRequestSchema = new mongoose.Schema({
     email: { type: String, required: true },
     service: { type: mongoose.Schema.Types.ObjectId, ref: "Service", required: true },
     room: { type: String, required: true },
-    payment_method: {
-        type: String,
-        enum: ["Bank Transfer", "Cash Payment", "Debit Card", "Online Payment"],
-        required: true
-    },
     amount: { type: Number, required: true },
     status: {
         type: String,

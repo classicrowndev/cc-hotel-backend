@@ -7,9 +7,9 @@ const Dish = require('../../models/dish')
 
 // Place a new order
 router.post('/place', verifyToken, async (req, res) => {
-    const { email, dishes, room, payment_method } = req.body
+    const { email, dishes, room } = req.body
 
-    if (!email || !dishes || !room || !payment_method) {
+    if (!email || !dishes || !room) {
         return res.status(400).send({ status: 'error', msg: 'All fields are required' })
     }
 
@@ -52,7 +52,6 @@ router.post('/place', verifyToken, async (req, res) => {
             dishes: orderDishes,
             room,
             amount: totalAmount,
-            payment_method,
             order_date: new Date(),
             timestamp: Date.now()
         })

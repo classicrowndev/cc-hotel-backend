@@ -207,24 +207,22 @@ const sendGuestBookingCancellationMail = async (email, fullname, roomName) => {
 
 
 // Guest Event Approved
-const sendGuestEventApprovalMail = async (email, title, start_date, end_date, hall_name) => {
+const sendGuestEventApprovalMail = async (email, fullname, date, total_price) => {
     try {
         const info = await transport.sendMail({
             from: `"Classic Crown Hotel" <${process.env.MAIL_USER}>`,
             to: email,
-            subject: `Your Event Has Been Approved: ${title}`,
+            subject: `Your Event Has Been Approved`,
             html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
                     <h2>Event Approved 🎉</h2>
-                    <p>Dear Guest,</p>
+                    <p>Dear ${fullname},</p>
                     <p>Your event request has been approved!</p>
                     <ul>
-                        <li><b>Title:</b> ${title}</li>
-                        <li><b>Hall:</b> ${hall_name}</li>
-                        <li><b>Start Date:</b> ${new Date(start_date).toDateString()}</li>
-                        <li><b>End Date:</b> ${new Date(end_date).toDateString()}</li>
+                        <li><b>Date:</b> ${new Date(date).toDateString()}</li>
+                        ${total_price > 0 ? `<li><b>Total Price:</b> ₦${total_price.toLocaleString()}</li>` : ''}
                     </ul>
-                    <p>We’re excited to host your event. Please check your dashboard for more details.</p>
+                    <p>We're excited to host your event. Please check your dashboard for more details.</p>
                     <br/>
                     <p>Best regards,<br/>Classic Crown Hotel Management</p>
                 </div>

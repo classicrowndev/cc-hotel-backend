@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 
+const verifyToken = require('../../middleware/verifyToken')
 const Service = require('../../models/service')
 const ServiceRequest = require('../../models/serviceRequest')
 
@@ -9,7 +10,7 @@ const ServiceRequest = require('../../models/serviceRequest')
 router.post('/all', async (req, res) => {
     try {
         // find all available services
-        const services = await Service.find({ availability: true }).sort({ timestamp: -1 })
+        const services = await Service.find({ status: "Available" }).sort({ timestamp: -1 })
 
         if (services.length === 0)
             return res.status(200).send({ status: 'ok', msg: 'No available services found' })
@@ -49,7 +50,7 @@ router.post('/filter', async (req, res) => {
 
     try {
         // find the filtered services
-        const services = await Service.find({ service_type, availability: true }).sort({ timestamp: -1 })
+        const services = await Service.find({ service_type, status: "Available" }).sort({ timestamp: -1 })
 
         if (services.length === 0)
             return res.status(200).send({ status: 'ok', msg: 'No services found for this type' })
@@ -72,7 +73,7 @@ router.post('/search', async (req, res) => {
         // fetch all services
         const services = await Service.find({
             name: { $regex: keyword, $options: 'i' },
-            availability: true
+            status: "Available"
         }).sort({ timestamp: -1 })
 
         if (services.length === 0)
@@ -87,10 +88,10 @@ router.post('/search', async (req, res) => {
 
 
 // Guest requests a service (e.g. Laundry, Spa)
-router.post('/request', async (req, res) => {
-    const { email, id, room, payment_method, amount } = req.body
+router.post('/request', verifyToken, async (req, res) => {
+    const { email, id, room } = req.body
 
-    if (!email || !id || !room || !payment_method || !amount) {
+    if (!email || !id || !room ) {
         return res.status(400).send({ status: 'error', msg: 'All fields are required' })
     }
     
@@ -101,17 +102,16 @@ router.post('/request', async (req, res) => {
             return res.status(400).send({ status: 'error', msg: 'Service not found' })
         }
 
-        if (!service.availability) {
+        if (service.status !== "Available") {
             return res.status(400).send({ status: 'error', msg: 'Service is not available currently' })
         }
 
         const request = new ServiceRequest({
-            guest: guest._id,
+            guest: req.user._id,
             email,
             service: service._id,
             room,
-            payment_method,
-            amount,
+            amount: service.price,
             timestamp: Date.now()
         })
 
@@ -125,7 +125,7 @@ router.post('/request', async (req, res) => {
 })
 
 // view the service request status
-router.post('/request_status', async (req, res) => {
+router.post('/request_status', verifyToken, async (req, res) => {
     const { request_id } = req.body
     if (!request_id) {
         return res.status(400).send({ status: 'error', msg: 'Request ID is required' })
@@ -133,18 +133,13 @@ router.post('/request_status', async (req, res) => {
 
     try {
         // find the guest's own request
-        const request = await ServiceRequest.findOne({ _id: request_id, guest: guest._id })
+        const request = await ServiceRequest.findOne({ _id: request_id, guest: req.user._id })
 
         if (!request) {
             return res.status(400).send({ status: 'error', msg: 'Service request not found' })
         }
 
-        return res.status(200).send({ status: 'ok', msg: 'success',
-            data: { service_name: request.service_name || undefined, 
-                current_status: request.status, // e.g. Requested, In Progress, Completed, Cancelled
-                requested_on: request.timestamp
-            }
-        })
+        return res.status(200).send({ status: 'ok', msg: 'success', request })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') 
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })

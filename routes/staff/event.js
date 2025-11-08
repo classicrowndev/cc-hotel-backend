@@ -92,8 +92,6 @@ router.post('/approve', verifyToken, async (req, res) => {
         await sendGuestEventApprovalMail(
             event.guest.email,
             event.guest.fullname,
-            event.hall_name,
-            event.hall.location,
             event.date,
             event.total_price
         )
