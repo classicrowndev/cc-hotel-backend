@@ -10,7 +10,7 @@ const bookingSchema = new mongoose.Schema({
     amount: Number,
     status: {type: String, enum: ["Booked", "Checked-in", "Checked-out", "Cancelled", "Overdue"],
         default: "Booked"},
-    duration: String,
+    duration: Number,
     no_of_guests: {type: Number, default: 0},
     checkInDate: Date,
     checkOutDate: Date,

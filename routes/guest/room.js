@@ -3,6 +3,7 @@ const router = express.Router()
 
 const Room = require('../../models/room')
 const verifyToken = require('../../middleware/verifyToken')
+const Booking = require('../../models/booking')
 
 
 //View all rooms (with optional fiter & search)
@@ -140,19 +141,27 @@ router.post('/check', verifyToken, async (req, res) => {
             return res.status(404).send({ status: 'error', msg: 'Room not found.' })
         }
 
-        // If room is not available at all (maintenance, etc.)
-        if (room.availability !== 'Available') {
-            return res.status(200).send({ status: 'error',  msg: `Room is currently ${room.availability}.` })
+        // If the room is permanently unavailable or under maintenance
+        if (room.availability === 'Under Maintenance' || room.availability === 'Unavailable') {
+            return res.status(200).send({
+                status: 'error',
+                msg: `Room is currently ${room.availability}.`
+            })
         }
 
-        // Check for overlapping active bookings
+        // Normalize requested dates to cover the full day
+        const requestedStart = new Date(checkInDate)
+        requestedStart.setHours(0, 0, 0, 0)
+
+        const requestedEnd = new Date(checkOutDate)
+        requestedEnd.setHours(23, 59, 59, 999)
+
+        // Check for overlapping bookings
         const overlappingBookings = await Booking.find({
             room: room._id,
             status: { $in: ['Booked', 'Checked-in'] },
             $or: [
-                { checkInDate: { $lte: new Date(checkOutDate), $gte: new Date(checkInDate) } },
-                { checkOutDate: { $gte: new Date(checkInDate), $lte: new Date(checkOutDate) } },
-                { checkInDate: { $lte: new Date(checkInDate) }, checkOutDate: { $gte: new Date(checkOutDate) } }
+                { checkInDate: { $lte: requestedEnd }, checkOutDate: { $gte: requestedStart } }
             ]
         })
 

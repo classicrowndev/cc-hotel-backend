@@ -48,7 +48,7 @@ router.post('/create', verifyToken, async (req, res) => {
         await booking.save()
 
         // Mark room as unavailable
-        room.availability = "reserved"
+        room.availability = "Booked"
         await room.save()
 
         // Send booking confirmation email
@@ -150,7 +150,7 @@ router.post('/cancel', verifyToken, async (req, res) => {
 
         const room = await Room.findById(booking.room)
         if (room) {
-            room.availability = "available"
+            room.availability = "Available"
             await room.save()
         }
 
