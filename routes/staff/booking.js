@@ -99,7 +99,7 @@ router.post('/all', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'No bookings found yet.' })
         }
 
-        return res.status(200).send({ status: 'ok', bookings })
+        return res.status(200).send({ status: 'ok', count: bookings.length, bookings })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token.' })

@@ -12,7 +12,6 @@ const bookingSchema = new mongoose.Schema({
         default: "Booked"},
     duration: Number,
     no_of_guests: {type: Number, default: 0},
-    no_of_rooms: {type: Number, default: 0},
     checkInDate: Date,
     checkOutDate: Date,
     timestamp: Number

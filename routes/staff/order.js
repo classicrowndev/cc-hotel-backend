@@ -21,8 +21,8 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequire
 
 // Add new order (Owner/Admin only)
 router.post('/add', verifyToken, async (req, res) => {
-    const { guest, email, dishes, room, payment_method } = req.body
-    if (!guest || !email || !dishes || !room || !payment_method) {
+    const { guest, email, dishes, room } = req.body
+    if (!guest || !email || !dishes || !room ) {
         return res.status(400).send({ status: 'error', msg: 'All fields are required' })
     }
 
