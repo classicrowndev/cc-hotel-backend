@@ -64,6 +64,8 @@ app.use('/staff_dish', require('./routes/staff/dish'))
 app.use('/staff_order', require('./routes/staff/order'))
 app.use('/staff_event', require('./routes/staff/event'))
 app.use('/staff_hall', require('./routes/staff/hall'))
+app.use('/staff_contact', require('./routes/staff/contact'))
+app.use('/staff_faq', require('./routes/staff/faq'))
 
 const port = process.env.PORT || 1000
 app.listen(port , ()=>{

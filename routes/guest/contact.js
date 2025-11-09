@@ -4,7 +4,7 @@ const Contact = require('../../models/contact')
 
 
 // Get contact info for guests
-router.get('/info', async (req, res) => {
+router.post('/info', async (req, res) => {
     try {
         const contact = await Contact.findOne()
         if (!contact) return res.status(404).send({ status: 'error', msg: 'Contact info not found' });

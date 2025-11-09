@@ -10,13 +10,24 @@ const Guest = require('../../models/guest')
 const ServiceRequest = require('../../models/serviceRequest')
 const Order = require('../../models/order')
 
+
+// Role checker
+const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
+    if (!allowedRoles.includes(user.role))
+        return false
+    if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
+        return false
+    return true
+}
+
+
 // Dashboard Overview + Recent Activities
 router.post('/overview', verifyToken, async (req, res) => {
     try {
         // Restrict dashboard access to Owner & Admin
-        if (!['Owner', 'Admin'].includes(staff.role)) {
-            return res.status(400).send({ status: 'error', msg: 'Access denied: insufficient privileges' })
-        }
+        if (!checkRole(req.user, ['Owner', 'Admin'])) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied.' })
+    }
 
         // ROOM STATISTICS
         const totalRooms = await Room.countDocuments()
@@ -72,7 +83,7 @@ router.post('/overview', verifyToken, async (req, res) => {
         }
 
         // REVENUE TRACKING (Only for Owner and Admin)
-        if (['Owner', 'Admin'].includes(staff.role)) {
+        if (!checkRole(req.user, ['Owner', 'Admin'])) {
             const allRequests = await ServiceRequest.find()
             const totalRevenue = allRequests.reduce((sum, r) => sum + (r.amount || 0), 0)
             const completedRevenue = allRequests
