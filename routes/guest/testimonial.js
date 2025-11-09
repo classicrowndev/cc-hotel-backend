@@ -1,6 +1,5 @@
 const express = require('express')
 const router = express.Router()
-const jwt = require('jsonwebtoken')
 
 const Testimonial = require("../../models/testimonial.js")
 const verifyToken = require('../../middleware/verifyToken')
@@ -10,17 +9,15 @@ const verifyToken = require('../../middleware/verifyToken')
 router.post('/create', verifyToken, async (req, res) => {
     const { comment, rating } = req.body
 
-    if (!comment || !rating) {
-        return res.status(400).send({ status: 'error', msg: 'All fields are required.' })
-    }
+    if (!comment || rating === undefined || typeof rating !== 'number' || rating < 1 || rating > 5) {
+        return res.status(400).send({ status: 'error', msg: 'All fields are required and rating must be 1-5.' });
+   }
+
 
     try {
-        // Verify guest token
-        const guest = jwt.verify(token, process.env.JWT_SECRET)
-
         // Create testimonial
         const testimonial = new Testimonial({
-            guest: guest._id,
+            guest: req.user._id,
             comment,
             rating,
             timestamp: Date.now()
@@ -61,7 +58,7 @@ router.post('/all', async (req, res) => {
 router.post('/mine', verifyToken, async (req, res) => {
     try {
         // fetch all testimonials
-        const testimonials = await Testimonial.find({ guest: guest._id }).sort({ timestamp: -1 })
+        const testimonials = await Testimonial.find({ guest: req.user._id }).sort({ timestamp: -1 })
 
         if (!testimonials.length) {
             return res.status(200).send({ status: 'ok', msg: 'You have not submitted any testimonials yet.' })
