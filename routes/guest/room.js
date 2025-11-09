@@ -3,6 +3,7 @@ const router = express.Router()
 
 const Room = require('../../models/room')
 const Booking = require('../../models/booking')
+const verifyToken = require('../../middleware/verifyToken')
 
 
 //View all rooms (with optional fiter & search)
@@ -116,7 +117,8 @@ router.post('/filter', async (req, res) => {
         else if (maxPrice) query.price = { $lte: maxPrice }
 
         // Step 2: Fetch filtered results from DB
-        let rooms = await Room.find(query).lean()
+        let rooms = await Room.find(query)
+        .select('name type category description price rating images').lean()
 
         // Step 3: If a search keyword exists, search only within filtered results
         if (search && search.trim() !== '') {
@@ -207,6 +209,36 @@ router.post('/check', async (req, res) => {
             msg: 'Error occurred.', 
             error: error.message 
         })
+    }
+})
+
+
+// Rate a room
+router.post('/rate', verifyToken, async (req, res) => {
+    const { room_id, rating } = req.body
+
+    if (!room_id || rating === undefined) {
+        return res.status(400).send({ status: 'error', msg: 'All fields are required.' })
+    }
+
+    if (typeof rating !== 'number' || rating < 1 || rating > 5) {
+        return res.status(400).send({ status: 'error', msg: 'Rating must be a number between 1 and 5.' })
+    }
+
+    try {
+        const room = await Room.findById(room_id)
+        if (!room) return res.status(404).send({ status: 'error', msg: 'Room not found.' })
+
+        // Simply set the rating (overwrites previous rating)
+        room.rating = rating
+
+        await room.save()
+
+        return res.status(200).send({ status: 'ok', msg: 'success', rating: room.rating })
+
+    } catch (err) {
+        console.error(err)
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: err.message })
     }
 })
 

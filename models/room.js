@@ -32,6 +32,7 @@ const roomSchema = new mongoose.Schema({
     description: { type: String },
     checkInDate: Date,
     checkOutDate: Date,
+    rating: {type: Number, default: 0},
     timestamp: Number
 }, { collection: 'rooms' })
 
