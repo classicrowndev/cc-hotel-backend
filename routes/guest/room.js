@@ -47,14 +47,34 @@ router.post('/view', async(req, res) => {
 
 // View only available rooms
 router.post('/available', async(req, res) => {
-    try {
-        //Find room by ID
-        const rooms = await Room.find({ availability: "Available" })
+    const { checkInDate, checkOutDate, no_of_guests, no_of_rooms } = req.body
 
-        if (rooms.length === 0) {
-            return res.status(200).send({status: "ok", msg: "No available rooms at the moment"})
+    if (!checkInDate || !checkOutDate || !no_of_guests || !no_of_rooms) {
+        return res.status(400).send({status: 'error', msg: 'All fields must be provided'})
+    }
+    try {
+        // Convert dates to proper Date objects
+        const start = new Date(checkInDate)
+        const end = new Date(checkOutDate)
+
+        // Find rooms that are not booked during the requested dates
+        const bookedRooms = await Booking.find({
+            $or: [
+                { checkInDate: { $lt: end }, checkOutDate: { $gt: start } } // overlaps
+            ]
+        }).distinct('room') // get IDs of booked rooms
+
+        // Find all rooms that are not booked
+        const availableRooms = await Room.find({
+            _id: { $nin: bookedRooms },
+            capacity: { $gte: no_of_guests } // optional: match guest count
+        }, 'name type description price capacity availability images' )
+
+        if (!availableRooms.length) {
+            return res.status(200).send({ status: 'ok', msg: 'No available rooms for the selected dates' })
         }
-        return res.status(200).send({status: 'ok', rooms})
+
+        return res.status(200).send({status: 'ok', count: availableRooms.length, availableRooms})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Failed to retrieve available rooms', error: e.message})
     }  
