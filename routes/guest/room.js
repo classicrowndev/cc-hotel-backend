@@ -16,7 +16,7 @@ router.post('/all', async(req, res) => {
             return res.status(200).send({status: "ok", msg: "No rooms available at the moment"})
         }
 
-        return res.status(200).send({status: 'ok', rooms})
+        return res.status(200).send({status: 'ok', count: rooms.length, rooms})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  

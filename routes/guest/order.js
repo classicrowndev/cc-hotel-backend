@@ -9,7 +9,7 @@ const Dish = require('../../models/dish')
 router.post('/place', verifyToken, async (req, res) => {
     const { email, dishes, room } = req.body
 
-    if (!email || !dishes || !room) {
+    if (!email || !dishes ) {
         return res.status(400).send({ status: 'error', msg: 'All fields are required' })
     }
 
