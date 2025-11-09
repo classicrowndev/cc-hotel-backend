@@ -1,182 +1,59 @@
-const express = require("express")
+const express = require('express')
 const router = express.Router()
 
-const dotenv = require('dotenv')
-dotenv.config()
+const Contact = require('../../models/contact')
+const verifyToken = require('../../middleware/verifyToken')
 
-const jwt = require("jsonwebtoken")
-const Contact = require("../../models/contact") // Messages (staff & guest)
-const nodemailer = require("nodemailer")
 
-// Staff sends a message
-router.post("/send", async (req, res) => {
-    const { token, name, email, message } = req.body
+// Role checker
+const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
+    if (!allowedRoles.includes(user.role))
+        return false
+    if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
+        return false
+    return true
+}
 
-    if (!token || !name || !email || !message) {
-        return res.status(400).send({ status: "error", msg: "All fields are required." })
+// Get contact info (staff can see it too)
+router.post('/all', verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'])) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied.' })
     }
 
     try {
-        // verify staff token
-        const staff = jwt.verify(token, process.env.JWT_SECRET)
-
-        const newMessage = new Contact({
-            user: staff._id,
-            name,
-            email,
-            message,
-            timestamp: Date.now()
-        })
-
-        await newMessage.save()
-
-        // Notify admin via email
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            }
-        })
-
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: process.env.ADMIN_EMAIL,
-            subject: `New Staff Message from ${name}`,
-            html: `
-              <h3>New Staff Message</h3>
-              <p><strong>Name:</strong> ${name}</p>
-              <p><strong>Email:</strong> ${email}</p>
-              <p><strong>Message:</strong> ${message}</p>
-              <hr/>
-              <p>Sent on: ${new Date().toLocaleString()}</p>
-            `
-        };
-
-        await transporter.sendMail(mailOptions)
-
-        return res.status(200).send({ status: "ok", msg: "success" })
-
+        const contact = await Contact.findOne()
+        if (!contact) return res.status(404).send({ status: 'error', msg: 'Contact info not found' })
+        res.status(200).send({ status: 'ok', contact })
     } catch (e) {
-        if (e.name === "JsonWebTokenError") {
-            return res.status(400).send({ status: "error", msg: "Token verification failed." })
-        }
-        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
+        res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
 
-// Staff views their own messages
-router.post("/all", async (req, res) => {
-    const { token } = req.body
+// Update contact info (staff only)
+router.post('/update', verifyToken, async (req, res) => {
+    const { address, phone_no, email } = req.body
 
-    if (!token) return res.status(400).send({ status: "error", msg: "Token must be provided." })
+    if (!checkRole(req.user, ['Owner', 'Admin'])) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can update contact info.' })
+    }
 
     try {
-        // verify staff token 
-        const staff = jwt.verify(token, process.env.JWT_SECRET)
-
-        const messages = await Contact.find({ user: staff._id }).sort({ timestamp: -1 })
-            .select("name email message timestamp")
-
-        if (!messages.length) return res.status(200).send({ status: "ok", msg: "No messages found for this staff member." })
-
-        return res.status(200).send({ status: "ok", msg: "success", messages })
-
-    } catch (e) {
-        if (e.name === "JsonWebTokenError") {
-            return res.status(400).send({ status: "error", msg: "Token verification failed." })
+        let contact = await Contact.findOne()
+        if (!contact) {
+            // If not exists, create one
+            contact = new Contact({ address, phone_no, email })
+        } else {
+            contact.address = address || contact.address
+            contact.phone_no = phone_no || contact.phone_no
+            contact.email = email || contact.email
         }
-        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
+        await contact.save()
+        res.status(200).send({ status: 'ok', msg: 'success', contact })
+    } catch (e) {
+        res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
-// Staff views all guest messages
-router.get("/guest_messages", async (req, res) => {
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) return res.status(400).send({ status: "error", msg: "Token must be provided." });
-
-    try {
-        const staff = jwt.verify(token, process.env.JWT_SECRET);
-
-        const guestMessages = await Contact.find({}) // optionally filter by role='guest' if you track roles
-            .sort({ timestamp: -1 })
-            .select("name email message timestamp");
-
-        if (!guestMessages.length) return res.status(200).send({ status: "ok", msg: "No guest messages found." });
-
-        return res.status(200).send({ status: "ok", msg: "success", guestMessages });
-
-    } catch (e) {
-        if (e.name === "JsonWebTokenError") {
-            return res.status(400).send({ status: "error", msg: "Token verification failed." });
-        }
-        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message });
-    }
-});
-
-// Staff replies to a guest message
-router.post("/reply", async (req, res) => {
-    const { token, messageId, replyMessage } = req.body
-
-    if (!token || !messageId || !replyMessage) {
-        return res.status(400).send({ status: "error", msg: "All fields are required." })
-    }
-
-    try {
-        const staff = jwt.verify(token, process.env.JWT_SECRET);
-
-        // Only allow certain roles to reply
-        if (!["Receptionist", "Manager", "Admin"].includes(staff.role)) {
-            return res.status(403).send({ status: "error", msg: "You are not authorized to reply to guest messages." })
-        }
-
-        const guestMessage = await Contact.findById(messageId);
-        if (!guestMessage) return res.status(404).send({ status: "error", msg: "Guest message not found." })
-
-        // Save the reply as a new Contact entry (could also make a separate Reply model)
-        const reply = new Contact({
-            user: staff._id,
-            name: staff.name,
-            email: guestMessage.email, // send back to guest
-            message: replyMessage,
-            timestamp: Date.now()
-        });
-
-        await reply.save();
-
-        // Notify guest via email
-        const transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            }
-        });
-
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: guestMessage.email,
-            subject: `Reply from Hotel Staff`,
-            html: `
-              <h3>Reply from Hotel Staff</h3>
-              <p><strong>Message:</strong> ${replyMessage}</p>
-              <hr/>
-              <p>Sent on: ${new Date().toLocaleString()}</p>
-            `
-        };
-
-        await transporter.sendMail(mailOptions);
-
-        return res.status(200).send({ status: "ok", msg: "success" })
-
-    } catch (e) {
-        if (e.name === "JsonWebTokenError") {
-            return res.status(400).send({ status: "error", msg: "Token verification failed." })
-        }
-        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
-    }
-})
 
 module.exports = router
