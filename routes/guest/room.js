@@ -2,7 +2,6 @@ const express = require('express')
 const router = express.Router()
 
 const Room = require('../../models/room')
-const verifyToken = require('../../middleware/verifyToken')
 const Booking = require('../../models/booking')
 
 
@@ -148,7 +147,7 @@ router.post('/filter', async (req, res) => {
 
 
 // Check room availability for specific dates with detailed status
-router.post('/check', verifyToken, async (req, res) => {
+router.post('/check', async (req, res) => {
     const { room_id, checkInDate, checkOutDate } = req.body
 
     if (!room_id || !checkInDate || !checkOutDate) {
