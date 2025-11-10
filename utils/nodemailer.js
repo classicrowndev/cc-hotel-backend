@@ -1,6 +1,6 @@
 const nodemailer = require("nodemailer")
-const dotenv = require("dotenv")
 
+const dotenv = require("dotenv")
 dotenv.config()
 
 const transport = nodemailer.createTransport({
@@ -386,6 +386,42 @@ const sendGuestEventCancellationMail = async (email, fullname, hallName, date, s
 }
 
 
+// Guest Payment Confirmation
+const sendPaymentSuccessMail = async (email, fullname, amount, reference, type = 'general') => {
+    try {
+        let title = 'Payment Successful'
+        if (type === 'booking') title = 'Room Booking Payment Successful'
+        if (type === 'order') title = 'Food Order Payment Successful'
+        if (type === 'event') title = 'Event Hall Booking Payment Successful'
+
+        const info = await transport.sendMail({
+            from: `"Classic Crown Hotel" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'Payment Confirmation - Thank you for your payment',
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7;">
+                    <div style="max-width: 600px; margin: auto; background: white; border-radius: 8px; padding: 20px;">
+                        <h2 style="color: #2c3e50;">Payment Successful 🎉</h2>
+                        <p>Dear <strong>${fullname}</strong>,</p>
+                        <p>We have received your payment of <strong>₦${amount}</strong>.</p>
+                        <p>Your payment reference is <strong>${reference}</strong>.</p>
+                        <p>Thank you for choosing our hotel. We look forward to hosting you!</p>
+                        <p style="margin-top: 20px;">Warm regards,<br>Hotel Management</p>
+                    </div>
+                </div>
+            `
+        })
+
+        console.log("✅ Payment confirmation Email sent:", info.response)
+        return { status: "ok", msg: "Email sent" }
+    } catch (error) {
+        console.error('❌Error sending payment email:', error)
+        return { status: "error", msg: "Failed to send email", error }
+    }
+}
+
+
+
 // const sendAccountVerification = async (email, fullname) => {
 //   try {
 //     const info = await transport
@@ -420,5 +456,6 @@ module.exports = {
     sendGuestEventCancellationMail,
     sendGuestEventApprovalMail,
     sendGuestEventRejectionMail,
-    sendGuestEventCompletionMail
+    sendGuestEventCompletionMail,
+    sendPaymentSuccessMail
 }
