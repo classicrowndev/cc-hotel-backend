@@ -29,7 +29,7 @@ router.post("/category", async (req, res) => {
 
     try {
         // Fetch all dishes by category
-        const dishes = await Dish.find({category, isReady: true}).sort({ date_added: -1})
+        const dishes = await Dish.find({category}).sort({ date_added: -1})
         if (!dishes || dishes.length === 0) {
             return res.status(200).send({ status: 'ok', msg: `No available dishes found in ${category}` })
         }
@@ -74,8 +74,7 @@ router.post("/search", async (req, res) => {
     try {
         // Find the dishes
         const dishes = await Dish.find({
-            name: { $regex: name, $options: "i" },
-            isReady: true
+            name: { $regex: name, $options: "i" }
         }).sort({date_added: -1})
 
         if (!dishes || dishes.length === 0) {
