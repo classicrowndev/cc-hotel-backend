@@ -7,14 +7,14 @@ const Service = require("../../models/service")
 
 
 //Helper to check role access
-const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
+const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], requiredTask = null) => {
     if (!allowedRoles.includes(user.role))
         return false
-    if (user.role === 'Staff' && taskRequired && user.task !== taskRequired)
-        return false
+    if (user.role === 'Staff' && requiredTask) {
+        if (!Array.isArray(user.task) || !user.task.includes(requiredTask)) return false
+    }
     return true
 }
-
 
 // Fetch all service requests (Owner/Admin or Assigned Staff)
 router.post("/all", verifyToken, async (req, res) => {

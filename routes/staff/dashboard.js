@@ -12,8 +12,11 @@ const Event = require('../../models/event')
 
 // Role checker
 const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequired = null) => {
-    if (!allowedRoles.includes(user.role)) return false
-    if (user.role === 'Staff' && taskRequired && user.task !== taskRequired) return false
+    if (!allowedRoles.includes(user.role))
+        return false
+    if (user.role === 'Staff' && requiredTask) {
+        if (!Array.isArray(user.task) || !user.task.includes(requiredTask)) return false
+    }
     return true
 }
 
