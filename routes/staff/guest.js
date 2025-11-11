@@ -65,7 +65,7 @@ router.post('/view', verifyToken, async (req, res) => {
 
 
 // Search for guests
-router.post("/search", async (req, res) => {
+router.post("/search", verifyToken, async (req, res) => {
     const { name} = req.body
 
     if (!name) {
@@ -255,9 +255,9 @@ router.post('/delete', verifyToken, async (req, res) => {
             return res.status(400).send({ status: 'error', msg: 'Guest ID is required' })
         }
 
-        const deleted = await Guest.findOneAndDelete({ id })
+        const deleted = await Guest.findOneAndDelete({ _id: id })
         if (!deleted) {
-            return res.status(404).send({ status: 'error', msg: 'guest not found' })
+            return res.status(404).send({ status: 'error', msg: 'Guest not found' })
         }
 
         res.status(200).send({ status: 'ok', msg: 'success' })
