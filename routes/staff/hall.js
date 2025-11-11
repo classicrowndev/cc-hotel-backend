@@ -157,7 +157,7 @@ router.post("/all", verifyToken, async (req, res) => {
             return res.status(200).send({ status: "ok", msg: "No halls found" })
         }
 
-        return res.status(200).send({ status: "ok", count: halls.length, halls })
+        return res.status(200).send({ status: "ok", msg: 'success', count: halls.length, halls })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
@@ -187,7 +187,7 @@ router.post("/view", verifyToken, async (req, res) => {
         if (!hall) {
             return res.status(404).send({ status: "error", msg: "Hall not found" })
         }
-        return res.status(200).send({ status: "ok", hall })
+        return res.status(200).send({ status: "ok", msg: 'success', hall })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })

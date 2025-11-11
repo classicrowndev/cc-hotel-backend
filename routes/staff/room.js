@@ -188,7 +188,7 @@ router.post("/all", verifyToken, async (req, res) => {
             return res.status(200).send({ status: "ok", msg: "No rooms found" })
         }
 
-        return res.status(200).send({ status: "ok", count: rooms.length, rooms })
+        return res.status(200).send({ status: "ok", msg: 'success', count: rooms.length, rooms })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
@@ -218,7 +218,7 @@ router.post("/view", verifyToken, async (req, res) => {
         if (!room){
             return res.status(404).send({ status: "error", msg: "Room not found" })
     }
-        return res.status(200).send({ status: "ok", room })
+        return res.status(200).send({ status: "ok", msg: 'success', room })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
@@ -251,10 +251,10 @@ router.post('/filter', verifyToken, async (req, res) => {
 
         const rooms = await Room.find(query).select('type description images price capacity amenities')
         if (!rooms.length) {
-            return res.status(200).send({ status: 'ok', msg: 'No rooms match the filter' })
+            return res.status(200).send({ status: 'ok', msg: 'No rooms found' })
         }
 
-        return res.status(200).send({ status: 'ok', rooms })
+        return res.status(200).send({ status: 'ok', msg: 'success', rooms, count: rooms.length })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })

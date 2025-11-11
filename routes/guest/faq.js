@@ -9,7 +9,7 @@ router.post("/all", async (req, res) => {
     try {
         const faqs = await FAQ.find().sort({ timestamp: -1 })
 
-        return res.status(200).send({status: 'ok', faqs})
+        return res.status(200).send({status: 'ok', msg: 'success', faqs})
     } catch (e) {
         /* JWT error handler commented out for now — FAQ is public,
         but can be re-enabled later if authentication is added. */
@@ -30,10 +30,10 @@ router.post("/view", async (req, res) => {
 
         const faq = await FAQ.findById(id)
         if (!faq) {
-            return res.status(400).send({ msg: "FAQ not found" })
+            return res.status(400).send({ status: 'error', msg: "FAQ not found" })
         }
 
-        return res.status(200).send({ status: 'ok', faq})
+        return res.status(200).send({ status: 'ok', msg: 'success', faq})
     } catch (e) {
         /* JWT error handler commented out for now — FAQ is public,
         but can be re-enabled later if authentication is added. */

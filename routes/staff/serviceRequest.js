@@ -35,7 +35,7 @@ router.post("/all", verifyToken, async (req, res) => {
             return res.status(200).send({ status: "ok", msg: "No service requests found" })
         }
 
-        return res.status(200).send({ status: "ok", requests })
+        return res.status(200).send({ status: "ok", msg: 'success', count: requests.length, requests })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
@@ -70,7 +70,7 @@ router.post("/view", verifyToken, async (req, res) => {
             return res.status(404).send({ status: "error", msg: "Service request not found" })
         }
 
-        return res.status(200).send({ status: "ok", request })
+        return res.status(200).send({ status: "ok", msg: 'success', request })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {

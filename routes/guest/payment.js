@@ -150,7 +150,7 @@ router.get('/view', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'No payments found', payments: [] })
         }
 
-        return res.status(200).send({ status: 'ok', payments })
+        return res.status(200).send({ status: 'ok', msg: 'success', payments })
     } catch (error) {
         console.error('Error fetching payments:', error.message);
         return res.status(500).send({ status: 'error', msg: 'Failed to fetch payments' })

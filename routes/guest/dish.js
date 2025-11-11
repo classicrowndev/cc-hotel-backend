@@ -9,10 +9,10 @@ router.post("/all", async (req, res) => {
         // Fetch all dishes
         const dishes = await Dish.find().sort({ date_added: -1})
         if (!dishes || dishes.length === 0) {
-            return res.status(200).send({status: 'ok', msg: 'success'})
+            return res.status(200).send({status: 'ok', msg: 'No dishes found.', count: 0, dishes: []})
         }
 
-        return res.status(200).send({status:'ok', count: dishes.length, dishes})
+        return res.status(200).send({status:'ok', msg:'success', count: dishes.length, dishes})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
@@ -31,10 +31,10 @@ router.post("/category", async (req, res) => {
         // Fetch all dishes by category
         const dishes = await Dish.find({category}).sort({ date_added: -1})
         if (!dishes || dishes.length === 0) {
-            return res.status(200).send({ status: 'ok', msg: `No available dishes found in ${category}` })
+            return res.status(200).send({ status: 'ok', msg: 'No available dishes found' })
         }
 
-        return res.status(200).send({ status: 'ok', count: dishes.length, dishes})
+        return res.status(200).send({ status: 'ok', msg: 'success', count: dishes.length, dishes})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
@@ -53,10 +53,10 @@ router.post("/view", async (req, res) => {
         // Find the dish
         const dish = await Dish.findById(id)
         if (!dish) {
-            return res.status(404).send({ message: "Dish not found" })
+            return res.status(404).send({ status: 'error', msg: "Dish not found" })
         }
 
-        return res.status(200).send({status: 'ok', dish})
+        return res.status(200).send({status: 'ok', msg: 'success', dish})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
@@ -78,10 +78,10 @@ router.post("/search", async (req, res) => {
         }).sort({date_added: -1})
 
         if (!dishes || dishes.length === 0) {
-            return res.status(200).send({ status: 'ok', msg: "No dishes matched your search" })
+            return res.status(200).send({ status: 'ok', msg: "No dishes found", count: 0, dishes: [] })
         }
 
-        return res.status(200).send({status: 'ok', count: dishes.length, dishes})
+        return res.status(200).send({status: 'ok', msg: 'success', count: dishes.length, dishes})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
@@ -110,10 +110,10 @@ router.post('/filter', async (req, res) => {
     try {
         const dishes = await Dish.find(query).select('name category image amount_per_portion')
         if (!dishes.length) {
-            return res.status(200).send({ status: 'ok', msg: 'No dishes match the filter' })
+            return res.status(200).send({ status: 'ok', msg: 'No dishes found', count: 0 })
         }
 
-        return res.status(200).send({ status: 'ok', dishes })
+        return res.status(200).send({ status: 'ok', msg: 'success', dishes, count: dishes.length})
     } catch (e) {
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }

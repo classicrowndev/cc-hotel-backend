@@ -9,8 +9,8 @@ const serviceRequestSchema = new mongoose.Schema({
     amount: { type: Number, required: true },
     status: {
         type: String,
-        enum: ["Requested", "In Progress", "Completed", "Cancelled"],
-        default: "Requested"
+        enum: ["Pending", "In Progress", "Completed", "Cancelled"],
+        default: "Pending"
     },
     request_date: { type: Date, default: Date.now },
     timestamp: Number

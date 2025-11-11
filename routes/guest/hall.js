@@ -12,10 +12,10 @@ router.post('/all', async(req, res) => {
         const halls = await Hall.find()
 
         if (halls.length === 0) {
-            return res.status(200).send({status: "ok", msg: "No halls at the moment"})
+            return res.status(200).send({status: "ok", msg: "No halls at the moment", count: 0, halls: []})
         }
 
-        return res.status(200).send({status: 'ok', halls})
+        return res.status(200).send({status: 'ok', msg: 'success', count: halls.length, halls})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
@@ -37,7 +37,7 @@ router.post('/view', async(req, res) => {
         if (!hall) {
             return res.status(400).send({status: "error", msg: "Hall not found"})
         }
-        return res.status(200).send({status: 'ok', hall})
+        return res.status(200).send({status: 'ok', msg: 'success', hall})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
@@ -53,7 +53,7 @@ router.post('/available', async(req, res) => {
         if (halls.length === 0) {
             return res.status(200).send({status: "ok", msg: "No available halls at the moment"})
         }
-        return res.status(200).send({status: 'ok', halls})
+        return res.status(200).send({status: 'ok', msg: 'success', halls, count: halls.length})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
@@ -73,9 +73,9 @@ router.post('/type', async(req, res) => {
         const halls = await Hall.find({type})
         
         if (halls.length === 0) {
-            return res.status(200).send({status: "ok", msg: `No halls found for type: ${type}`})
+            return res.status(200).send({status: "ok", msg: 'No halls found', count: 0, halls: [] })
         }
-        return res.status(200).send({status: 'ok', halls})
+        return res.status(200).send({status: 'ok', msg: 'success', count: halls.length, halls})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
@@ -103,10 +103,10 @@ router.post('/search', async(req, res) => {
         }).select('type price capacity amenities description')
 
         if (!halls || halls.length === 0) {
-            return res.status(200).send({ status: 'ok', msg: "No halls matched your search" })
+            return res.status(200).send({ status: 'ok', msg: "No halls found", count: 0, halls: [] })
         }
 
-        return res.status(200).send({status: 'ok', halls})
+        return res.status(200).send({status: 'ok', msg: 'success', halls, count: halls.length})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  

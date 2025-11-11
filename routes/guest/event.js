@@ -75,10 +75,10 @@ router.post('/all', verifyToken, async (req, res) => {
         const events = await Event.find({ guest: guestId }).sort({ timestamp: -1 })
 
         if (events.length === 0) {
-            return res.status(200).send({ status: 'ok', msg: 'You have not made any event requests yet.' })
+            return res.status(200).send({ status: 'ok', msg: 'No events found', count: 0, events: [] })
         }
 
-        return res.status(200).send({ status: 'ok', events })
+        return res.status(200).send({ status: 'ok', msg: 'success', count: events.length, events })
     } catch (e) {
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
@@ -95,7 +95,7 @@ router.post('/view', verifyToken, async (req, res) => {
         .populate('hall', 'name location hall_type amount') // optional populate
         if (!event) return res.status(404).send({ status: 'error', msg: 'Event not found.' })
 
-        return res.status(200).send({ status: 'ok', event })
+        return res.status(200).send({ status: 'ok', msg: 'success', event })
     } catch (e) {
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
@@ -112,10 +112,10 @@ router.post('/filter', verifyToken, async (req, res) => {
         const events = await Event.find({ guest: guestId, status }).sort({ timestamp: -1 })
 
         if (events.length === 0) {
-            return res.status(200).send({ status: 'ok', msg: `No ${status.toLowerCase()} events found.` })
+            return res.status(200).send({ status: 'ok', msg: 'No events found', count: 0 })
         }
 
-        return res.status(200).send({ status: 'ok', events })
+        return res.status(200).send({ status: 'ok', msg: 'success', count: events.length, events })
     } catch (e) {
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
@@ -138,10 +138,10 @@ router.post('/search', verifyToken, async (req, res) => {
         }).sort({ timestamp: -1 })
 
         if (events.length === 0) {
-            return res.status(200).send({ status: 'ok', msg: 'No matching events found.' })
+            return res.status(200).send({ status: 'ok', msg: 'No events found' })
         }
 
-        return res.status(200).send({ status: 'ok', events })
+        return res.status(200).send({ status: 'ok', msg: 'success', events, count: events.length })
     } catch (e) {
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }

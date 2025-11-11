@@ -99,7 +99,7 @@ router.post('/all', verifyToken, async (req, res) => {
 
     try {
         const faqs = await FAQ.find().sort({ timestamp: -1 })
-        return res.status(200).send({ status: 'ok', total: faqs.length, faqs })
+        return res.status(200).send({ status: 'ok', msg: 'success', faqs })
     } catch (e) {
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
@@ -124,7 +124,7 @@ router.post('/view', verifyToken, async (req, res) => {
             return res.status(404).send({ status: 'error', msg: 'FAQ not found.' })
         }
 
-        return res.status(200).send({ status: 'ok', faq })
+        return res.status(200).send({ status: 'ok', msg: 'success', faq })
     } catch (e) {
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }

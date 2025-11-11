@@ -43,10 +43,10 @@ router.post('/all', async (req, res) => {
         const testimonials = await Testimonial.find().populate('guest', 'fullname email').sort({ timestamp: -1 })
 
         if (!testimonials.length) {
-            return res.status(200).send({ status: 'ok', msg: 'No testimonials yet.' })
+            return res.status(200).send({ status: 'ok', msg: 'Testimonials not found', count: 0, testimonials: [] })
         }
 
-        return res.status(200).send({ status: 'ok', testimonials })
+        return res.status(200).send({ status: 'ok', msg: 'success', count: testimonials.length, testimonials })
 
     } catch (e) {
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
@@ -61,10 +61,10 @@ router.post('/mine', verifyToken, async (req, res) => {
         const testimonials = await Testimonial.find({ guest: req.user._id }).sort({ timestamp: -1 })
 
         if (!testimonials.length) {
-            return res.status(200).send({ status: 'ok', msg: 'You have not submitted any testimonials yet.' })
+            return res.status(200).send({ status: 'ok', msg: 'You have not submitted any testimonials yet.', count: 0 })
         }
 
-        return res.status(200).send({ status: 'ok', testimonials })
+        return res.status(200).send({ status: 'ok', msg: 'success', count: testimonials.length, testimonials })
 
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {

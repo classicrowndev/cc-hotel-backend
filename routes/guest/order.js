@@ -67,7 +67,7 @@ router.post('/all', verifyToken, async (req, res) => {
         // Fetch all orders
         const orders = await Order.find({ guest: req.user._id }).sort({ order_date: -1 })
         if (orders.length === 0) {
-            return res.status(200).send({ status: 'ok', msg: 'No orders found for this guest' })
+            return res.status(200).send({ status: 'ok', msg: 'No orders found', count: 0})
         }
 
         return res.status(200).send({ status: 'ok', msg: 'success', count: orders.length, orders })

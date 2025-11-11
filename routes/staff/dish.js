@@ -98,7 +98,7 @@ router.post('/all', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'No dishes found' })
         }
 
-        return res.status(200).send({ status: 'ok', count: dishes.length, dishes })
+        return res.status(200).send({ status: 'ok', msg: 'success', count: dishes.length, dishes })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
@@ -123,7 +123,7 @@ router.post('/view', verifyToken, async (req, res) => {
         const dish = await Dish.findById(id)
         if (!dish) return res.status(404).send({ status: 'error', msg: 'Dish not found' })
 
-        return res.status(200).send({ status: 'ok', dish })
+        return res.status(200).send({ status: 'ok', msg: 'success', dish })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
@@ -257,7 +257,8 @@ router.post('/overview', verifyToken, async (req, res) => {
         const unavailable = await Dish.countDocuments({ isReady: false })
         const total_drinks = await Dish.countDocuments({ category: { $in: ['Bar & Drinks', 'Beverages'] } })
 
-        return res.status(200).send({ status: 'ok', overview: { total, available, unavailable, total_drinks }})
+        return res.status(200).send({ status: 'ok', msg: 'success',
+            overview: { total, available, unavailable, total_drinks }})
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
@@ -284,10 +285,10 @@ router.post('/search', verifyToken, async (req, res) => {
         }).sort({ date_added: -1 })
 
         if (!dishes.length) {
-            return res.status(200).send({ status: 'ok', msg: 'No dishes match your search' })
+            return res.status(200).send({ status: 'ok', msg: 'No dishes found' })
         }
 
-        return res.status(200).send({ status: 'ok', count: dishes.length, dishes })
+        return res.status(200).send({ status: 'ok', msg: 'success', count: dishes.length, dishes })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })

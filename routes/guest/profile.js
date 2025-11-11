@@ -124,7 +124,7 @@ router.post('/edit', uploader.single('profile_img'), verifyToken, async (req, re
             status: 'ok',
             msg: 'success',
             guest
-        });
+        })
 
     } catch (error) {
         console.error(error)
@@ -147,7 +147,7 @@ router.post('/view', verifyToken, async(req, res) =>{
     try {
         const guest = await Guest.findById(req.user._id).lean()
         if(!guest)
-            return res.status(200).send({status: 'ok', msg: 'No guest Found'})
+            return res.status(200).send({status: 'ok', msg: 'No Guest Found'})
 
         return res.status(200).send({status: 'ok', msg: 'success', guest})
         

@@ -78,10 +78,10 @@ router.post('/all', verifyToken, async (req, res) => {
             .sort({ timestamp: -1 })
 
         if (!bookings.length) {
-            return res.status(200).send({ status: 'ok', msg: 'No bookings found.' })
+            return res.status(200).send({ status: 'ok', msg: 'No bookings found.', count: 0 })
         }
 
-        return res.status(200).send({ status: 'success', bookings })
+        return res.status(200).send({ status: 'ok', msg:'success', bookings, count: bookings.length })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: 'error', msg: 'Token verification failed', error: e.message })

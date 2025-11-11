@@ -87,7 +87,7 @@ router.post('/all', verifyToken, async (req, res) => {
         const orders = await Order.find().sort({ order_date: -1 })
         if (!orders.length) return res.status(200).send({ status: 'ok', msg: 'No orders found' })
 
-        return res.status(200).send({ status: 'ok', count: orders.length, orders })
+        return res.status(200).send({ status: 'ok', msg: 'success', count: orders.length, orders })
     } catch (e) {
         if (e.name === 'JsonWebTokenError')
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token', error: e.message })

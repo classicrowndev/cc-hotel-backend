@@ -13,9 +13,9 @@ router.post('/all', async (req, res) => {
         const services = await Service.find({ status: "Available" }).sort({ timestamp: -1 })
 
         if (services.length === 0)
-            return res.status(200).send({ status: 'ok', msg: 'No available services found' })
+            return res.status(200).send({ status: 'ok', msg: 'No available services found', count: 0, services: [] })
 
-        return res.status(200).send({ status: 'ok', services })
+        return res.status(200).send({ status: 'ok', msg: 'success', count: services.length, services })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') 
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
@@ -34,7 +34,7 @@ router.post('/view', async (req, res) => {
         const service = await Service.findById(id)
         if (!service) return res.status(400).send({ status: 'error', msg: 'Service not found' })
 
-        return res.status(200).send({ status: 'ok', service })
+        return res.status(200).send({ status: 'ok', msg: 'success', service })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') 
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
@@ -53,9 +53,9 @@ router.post('/filter', async (req, res) => {
         const services = await Service.find({ service_type, status: "Available" }).sort({ timestamp: -1 })
 
         if (services.length === 0)
-            return res.status(200).send({ status: 'ok', msg: 'No services found for this type' })
+            return res.status(200).send({ status: 'ok', msg: 'No services found', count: 0, services: [] })
 
-        return res.status(200).send({ status: 'ok', services })
+        return res.status(200).send({ status: 'ok', msg: 'success', count: services.length, services })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') 
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
@@ -77,9 +77,9 @@ router.post('/search', async (req, res) => {
         }).sort({ timestamp: -1 })
 
         if (services.length === 0)
-            return res.status(200).send({ status: 'ok', msg: 'No services match your search' })
+            return res.status(200).send({ status: 'ok', msg: 'No services found', count: 0, services: [] })
 
-        return res.status(200).send({ status: 'ok', services })
+        return res.status(200).send({ status: 'ok', msg: 'success', count: services.length, services })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') 
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
@@ -103,7 +103,7 @@ router.post('/request', verifyToken, async (req, res) => {
         }
 
         if (service.status !== "Available") {
-            return res.status(400).send({ status: 'error', msg: 'Service is not available currently' })
+            return res.status(400).send({ status: 'error', msg: 'Service currently not available' })
         }
 
         const request = new ServiceRequest({

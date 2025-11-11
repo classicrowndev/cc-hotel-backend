@@ -86,7 +86,7 @@ router.post("/all", verifyToken, async (req, res) => {
         const services = await Service.find().sort({ timestamp: -1 })
         if (services.length === 0) return res.status(200).send({ status: "ok", msg: "No services found" })
 
-        return res.status(200).send({ status: "ok", total: services.length, services })
+        return res.status(200).send({ status: "ok", msg: 'success', count: services.length, services })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
@@ -116,7 +116,7 @@ router.post("/view", verifyToken, async (req, res) => {
         const service = await Service.findById(id)
         if (!service) return res.status(404).send({ status: "error", msg: "Service not found" })
 
-        return res.status(200).send({ status: "ok", service })
+        return res.status(200).send({ status: "ok", msg: 'success', service })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {

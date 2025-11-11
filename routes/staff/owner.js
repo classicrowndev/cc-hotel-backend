@@ -88,7 +88,7 @@ router.post('/view_staffs', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'No staffs found', staffs: [] })
         }
 
-        res.status(200).send({ status: 'ok', staffs })
+        res.status(200).send({ status: 'ok', msg:'success', count: staffs.length, staffs })
     } catch (e) {
         console.error(e)
         res.status(500).send({ status: 'error', msg: 'Error occurred' })
@@ -113,7 +113,7 @@ router.post('/view_staff', verifyToken, async (req, res) => {
             return res.status(404).send({ status: 'error', msg: `${role} not found` })
         }
 
-        return res.status(200).send({ status: 'ok', staff })
+        return res.status(200).send({ status: 'ok', msg: 'success', staff })
     } catch (e) {
         console.error(e)
         return res.status(500).send({ status: 'error', msg: 'Error occurred' })
@@ -213,10 +213,10 @@ router.post('/blocked_staffs', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'No blocked staffs found', blockedStaffs: [] })
         }
         if (blockedStaffs.length === 0) {
-            return res.status(200).send({ status: 'ok', msg: `No blocked ${role}s`, staffs: [] })
+            return res.status(200).send({ status: 'ok', msg: `No blocked ${role}s`, blockedStaffs: [] })
         }
 
-        res.status(200).send({ status: 'ok', blockedStaffs })
+        res.status(200).send({ status: 'ok', msg: 'success', count: blockedStaffs.length, blockedStaffs })
     } catch (error) {
         console.error(error)
         res.status(500).send({ status: 'error', msg: 'Error occurred' })

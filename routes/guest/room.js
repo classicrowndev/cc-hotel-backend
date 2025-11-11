@@ -16,7 +16,7 @@ router.post('/all', async(req, res) => {
             return res.status(200).send({status: "ok", msg: "No rooms available at the moment"})
         }
 
-        return res.status(200).send({status: 'ok', count: rooms.length, rooms})
+        return res.status(200).send({status: 'ok', msg: 'success', count: rooms.length, rooms})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
@@ -38,7 +38,7 @@ router.post('/view', async(req, res) => {
         if (!room) {
             return res.status(400).send({status: "error", msg: "Room not found"})
         }
-        return res.status(200).send({status: 'ok', room})
+        return res.status(200).send({status: 'ok', msg: 'success', room})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occured', error: e.message})
     }  
@@ -74,9 +74,9 @@ router.post('/available', async(req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'No available rooms for the selected dates' })
         }
 
-        return res.status(200).send({status: 'ok', count: availableRooms.length, availableRooms})
+        return res.status(200).send({status: 'ok', msg: 'success', count: availableRooms.length, availableRooms})
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Failed to retrieve available rooms', error: e.message})
+        return res.status(500).send({status: 'error', msg: 'Error occurred', error: e.message})
     }  
 })
 
@@ -94,9 +94,9 @@ router.post('/type', async(req, res) => {
         const rooms = await Room.find({type})
         
         if (rooms.length === 0) {
-            return res.status(200).send({status: "ok", msg: `No rooms found for type: ${type}`})
+            return res.status(200).send({status: "ok", msg: 'No rooms found'})
         }
-        return res.status(200).send({status: 'ok', rooms})
+        return res.status(200).send({status: 'ok', msg: 'success',rooms, count: rooms.length})
     } catch (e) {
         return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
     }  
@@ -133,7 +133,7 @@ router.post('/filter', async (req, res) => {
 
         // Step 4: Handle empty results
         if (!rooms.length) {
-            return res.status(200).send({ status: 'ok', msg: 'No rooms found' })
+            return res.status(200).send({ status: 'ok', msg: 'No rooms found', count: 0, rooms: [] })
         }
 
         // Step 5: Send successful response
@@ -141,9 +141,7 @@ router.post('/filter', async (req, res) => {
  
     } catch (error) {
         console.error(error)
-        return res.status(500).send({
-            status: 'error', msg: 'Error occurred', error: error.message
-       })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: error.message })
     }
 })
 

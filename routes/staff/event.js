@@ -36,7 +36,7 @@ router.post('/all', verifyToken, async (req, res) => {
             return res.status(200).send({ status: 'ok', msg: 'No events found.' })
         }
 
-        return res.status(200).send({ status: 'ok', events })
+        return res.status(200).send({ status: 'ok', msg: 'success', events })
     } catch (e) {
         console.error('Error fetching events:', e);
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
@@ -60,7 +60,7 @@ router.post('/view', verifyToken, async (req, res) => {
 
         if (!event) return res.status(404).send({ status: 'error', msg: 'Event not found' })
 
-        return res.status(200).send({ status: 'ok', event })
+        return res.status(200).send({ status: 'ok', msg: 'success', event })
     } catch (e) {
         console.error('Error fetching event:', e)
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })

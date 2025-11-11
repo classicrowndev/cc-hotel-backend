@@ -23,7 +23,7 @@ router.post('/all', verifyToken, async (req, res) => {
     try {
         const contact = await Contact.findOne()
         if (!contact) return res.status(404).send({ status: 'error', msg: 'Contact info not found' })
-        res.status(200).send({ status: 'ok', contact })
+        res.status(200).send({ status: 'ok', msg: 'success', contact })
     } catch (e) {
         res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
