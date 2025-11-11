@@ -86,7 +86,7 @@ const sendPasswordResetStaff = async (email, fullname, resetPasswordCode) => {
 
 
 // Confirmation of Staff account created
-const sendStaffAccountMail = async (email, password, fullname, role) => {
+const sendStaffAccountMail = async (email, password, fullname, role, task) => {
     try {
         const info = await transport.sendMail({
             from: `"Classic Crown Hotel" <${process.env.MAIL_USER}>`,

@@ -17,7 +17,7 @@ router.post('/create_staff', verifyToken, async (req, res) => {
             return res.status(403).send({ status: 'error', msg: 'Access denied. Only owner can create accounts.' })
         }
 
-        const { fullname, email, password, phone_no, role } = req.body
+        const { fullname, email, password, phone_no, role, task } = req.body
 
         if (!fullname || !email || !password || !phone_no || !role) {
             return res.status(400).send({ status: 'error', msg: 'All fields including role are required' })
@@ -25,6 +25,11 @@ router.post('/create_staff', verifyToken, async (req, res) => {
 
         if (!['Admin', 'Staff'].includes(role)) {
             return res.status(400).send({ status: 'error', msg: 'Role must be either Admin or Staff' })
+        }
+
+        // If role is Staff, task becomes mandatory
+        if (role === 'Staff' && !task) {
+            return res.status(400).send({ status: 'error', msg: 'Task is required for staff accounts' })
         }
 
         const existingStaff = await Staff.findOne({ email })
@@ -39,7 +44,8 @@ router.post('/create_staff', verifyToken, async (req, res) => {
             email,
             password: hashedPassword,
             phone_no,
-            role
+            role,
+            task: role === 'Staff' ? task : undefined, // assign task only if role is 'Staff'
         })
 
         await newStaff.save()
@@ -53,7 +59,7 @@ router.post('/create_staff', verifyToken, async (req, res) => {
         return res.status(201).send({ status: 'ok',
             msg: 'success',
             data: { id: newStaff._id, fullname: newStaff.fullname, email: newStaff.email, phone_no: newStaff.phone_no,
-                role: newStaff.role}
+                role: newStaff.role, task: newStaff.task }
         })
     } catch (error) {
         console.error('Error creating account:', error)
