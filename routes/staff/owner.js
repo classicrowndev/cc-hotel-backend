@@ -8,6 +8,8 @@ const bcrypt = require('bcryptjs')
 const verifyToken = require('../../middleware/verifyToken')
 const { sendStaffAccountMail } = require('../../utils/nodemailer')
 const Staff = require('../../models/staff')
+const cloudinary = require('../../utils/cloudinary')
+const uploader = require('../../utils/multer')
 
 
 // Owner creates admin or staff account
@@ -54,7 +56,7 @@ router.post('/create_staff', verifyToken, async (req, res) => {
 
 
         // Send confirmation mail (non-blocking)
-        await sendStaffAccountMail(email, password, fullname, role)
+        await sendStaffAccountMail(email, password, fullname, role, task)
 
         return res.status(201).send({ status: 'ok',
             msg: 'success',
@@ -64,6 +66,56 @@ router.post('/create_staff', verifyToken, async (req, res) => {
     } catch (error) {
         console.error('Error creating account:', error)
         return res.status(500).send({ status: 'error', msg: 'Error occurred' })
+    }
+})
+
+
+// Owner edits admin/staff account
+router.post("/edit_staff", verifyToken, uploader.single("profile_img"), async (req, res) => {
+    try {
+        const { id, ...updateData } = req.body
+
+        if (!id) return res.status(400).send({ status: "error", msg: "Staff ID is required" })
+        if (!req.user || req.user.role !== "Owner")
+            return res.status(403).send({ status: "error", msg: "Access denied. Only owner can edit accounts" })
+
+        let staff = await Staff.findById(id)
+        if (!staff) return res.status(404).send({ status: "error", msg: "Staff not found" })
+
+        // Handle profile image
+        if (req.file) {
+            if (staff.img_id) await cloudinary.uploader.destroy(staff.img_id)
+            const upload = await cloudinary.uploader.upload(req.file.path, { folder: "staff-images" })
+            updateData.img_id = upload.public_id
+            updateData.img_url = upload.secure_url
+        }
+
+        // Handle task logic
+        if (updateData.role === "Staff") {
+            if (updateData.task) {
+                updateData.task = Array.isArray(updateData.task) 
+                ? updateData.task 
+                : [updateData.task]
+            }
+        } else {
+            delete updateData.task // prevent assigning tasks to non-staffs
+        }
+
+        // Whitelist allowed fields for safety
+        const allowedFields = ["fullname", "email", "phone_no", "role", "task", "address", "img_id", "img_url"]
+        Object.keys(updateData).forEach(key => {
+            if (!allowedFields.includes(key)) delete updateData[key]
+        })
+
+        updateData.updatedAt = Date.now()
+
+        // Perform update
+        staff = await Staff.findByIdAndUpdate(id, updateData, { new: true })
+
+        return res.status(200).send({ status: "ok", msg: "success", staff })
+    } catch (error) {
+        console.error("Error editing account:", error);
+        return res.status(500).send({ status: "error", msg: "An error occurred", error: error.message });
     }
 })
 

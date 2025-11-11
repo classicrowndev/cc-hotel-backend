@@ -27,7 +27,7 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], requiredTas
 router.post('/add', verifyToken, uploader.array('images', 5), async (req, res) => {
     const { name, category, amount_per_portion, isReady, quantity } = req.body
     if (!name || !category || amount_per_portion === undefined) {
-        return res.status(400).send({ status: 'error', msg: 'Name, category and amount_per_portion are required' })
+        return res.status(400).send({ status: 'error', msg: 'all fields are required' })
     }
 
     if (!checkRole(req.user, ['Owner', 'Admin'], 'dish')) {

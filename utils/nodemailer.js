@@ -88,6 +88,9 @@ const sendPasswordResetStaff = async (email, fullname, resetPasswordCode) => {
 // Confirmation of Staff account created
 const sendStaffAccountMail = async (email, password, fullname, role, task) => {
     try {
+        // Build task list only if there are tasks
+        const taskSection = Array.isArray(task) && task.length > 0 ? `<p><strong>Assigned Tasks:</strong> ${task.join(', ')}</p>` : ''
+
         const info = await transport.sendMail({
             from: `"Classic Crown Hotel" <${process.env.MAIL_USER}>`,
             to: email,
@@ -95,6 +98,7 @@ const sendStaffAccountMail = async (email, password, fullname, role, task) => {
             html: `
                 <h2>Hi ${fullname},</h2>
                 <p>Your ${role} account has been successfully created.</p>
+                ${taskSection}
                 <p>Here are your login details:</p>
                 <ul>
                     <li><strong>Email:</strong> ${email}</li>
