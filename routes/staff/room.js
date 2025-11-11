@@ -36,22 +36,34 @@ router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) =
         // Handle uploaded files first
         if (req.files && req.files.length > 0) {
             for (const file of req.files) {
+                // Upload main image
                 const upload = await cloudinary.uploader.upload(file.path,
-                    { folder: "room-images" })
-                    images.push(
-                        { img_id: upload.public_id, img_url: upload.secure_url }
+                    { folder: "room-images" }
+                )
+
+                // Upload thumbnail
+                const thumb = await cloudinary.uploader.upload(file.path, {
+                    folder: 'room-images-thumbs',
+                    crop: 'fill',
+                    width: 200,
+                    height: 200,
+                    quality: 'auto'
+                })
+
+                images.push({ img_id: upload.public_id, img_url: upload.secure_url, 
+                    thumb_id: thumb.public_id, thumb_url: thumb.secure_url }
                 )
             }
         }
 
         // Handle JSON images sent in the request body
-        let bodyImages = [];
+        let bodyImages = []
         if (req.body.images) {
             try {
                 // If images are sent as JSON string, parse it
-                bodyImages = typeof req.body.images === 'string' ? JSON.parse(req.body.images) : req.body.images;
+                bodyImages = typeof req.body.images === 'string' ? JSON.parse(req.body.images) : req.body.images
             } catch (err) {
-                return res.status(400).send({ status: "error", msg: "Invalid format for images", error: err.message });
+                return res.status(400).send({ status: "error", msg: "Invalid format for images", error: err.message })
             }
 
             if (Array.isArray(bodyImages) && bodyImages.length > 0) {
@@ -118,7 +130,13 @@ router.post("/update", verifyToken, uploader.array('images', 5), async (req, res
             const uploadedImages = []
             for (const file of req.files) {
                 const upload = await cloudinary.uploader.upload(file.path, { folder: 'room-images' })
-                uploadedImages.push({ img_id: upload.public_id, img_url: upload.secure_url })
+
+                // Generate thumbnail URL (on the fly using Cloudinary URL transformation)
+                const thumbUrl = upload.secure_url.replace('/upload/', '/upload/w_200,h_200,c_fill/')
+
+                uploadedImages.push({ img_id: upload.public_id, img_url: upload.secure_url, 
+                    thumb_url: thumbUrl // can send to the frontend only
+                })
             }
 
             updateData.images = uploadedImages

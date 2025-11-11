@@ -38,8 +38,20 @@ router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) =
             for (const file of req.files) {
                 const upload = await cloudinary.uploader.upload(file.path,
                     { folder: "hall-images" })
+
+                    // Upload thumbnail
+                    const thumb = await cloudinary.uploader.upload(file.path, {
+                        folder: 'hall-images-thumbs',
+                        crop: 'fill',
+                        width: 200,
+                        height: 200,
+                        quality: 'auto'
+                    })
+                    
                     images.push(
-                        { img_id: upload.public_id, img_url: upload.secure_url }
+                        { img_id: upload.public_id, img_url: upload.secure_url,
+                            thumb_id: thumb.public_id,thumb_url: thumb.secure_url
+                         }
                 )
             }
         }
@@ -117,7 +129,13 @@ router.post("/update", verifyToken, uploader.array('images', 5), async (req, res
             const uploadedImages = []
             for (const file of req.files) {
                 const upload = await cloudinary.uploader.upload(file.path, { folder: 'hall-images' })
-                uploadedImages.push({ img_id: upload.public_id, img_url: upload.secure_url })
+
+                // Generate thumbnail URL (on the fly using Cloudinary URL transformation)
+                const thumbUrl = upload.secure_url.replace('/upload/', '/upload/w_200,h_200,c_fill/')
+
+                uploadedImages.push({ img_id: upload.public_id, img_url: upload.secure_url,
+                    thumb_url: thumbUrl // can send to the frontend only
+                 })
             }
 
             updateData.images = uploadedImages

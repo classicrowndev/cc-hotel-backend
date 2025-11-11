@@ -3,6 +3,8 @@ const router = express.Router()
 
 const verifyToken = require('../../middleware/verifyToken') // your middleware
 const Service = require("../../models/service")
+const cloudinary = require('../../utils/cloudinary')
+const uploader = require('../../utils/multer')
 
 
 //Helper to check role access
@@ -16,7 +18,7 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], taskRequire
 
 
 // Add a new service (Only Owner or Admin)
-router.post("/add", verifyToken, async (req, res) => {
+router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) => {
     const { service_type, name, description, price, status, image } = req.body
 
     if (!checkRole(req.user, ['Owner', 'Admin'], 'service')) {
@@ -24,6 +26,51 @@ router.post("/add", verifyToken, async (req, res) => {
     }
 
     try {
+        let images = []
+        
+        // Handle uploaded files first
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path,{ 
+                    folder: "service-images" 
+                })
+        
+                // Upload thumbnail
+                const thumb = await cloudinary.uploader.upload(file.path, {
+                    folder: 'service-images-thumbs',
+                    crop: 'fill',
+                    width: 200,
+                    height: 200,
+                    quality: 'auto'
+                })
+                            
+                images.push(
+                    { img_id: upload.public_id, img_url: upload.secure_url,
+                        thumb_id: thumb.public_id, thumb_url: thumb.secure_url
+                    }
+                )
+            }
+        }
+        
+        // Handle JSON images sent in the request body
+        let bodyImages = []
+        if (req.body.images) {
+            try {
+                // If images are sent as JSON string, parse it
+                bodyImages = typeof req.body.images === 'string' ? JSON.parse(req.body.images) : req.body.images;
+            } catch (err) {
+                return res.status(400).send({ status: "error", msg: "Invalid format for images", error: err.message });
+            }
+        
+            if (Array.isArray(bodyImages) && bodyImages.length > 0) {
+                for (const img of bodyImages) {
+                    if (img.img_id && img.img_url) {
+                        images.push({ img_id: img.img_id, img_url: img.img_url });
+                    }
+                }
+            }
+        }
+        
         const newService = new Service({
             service_type,
             name,
@@ -47,7 +94,7 @@ router.post("/add", verifyToken, async (req, res) => {
 
 
 // Update service details (Only Owner & Admin)
-router.post("/update", verifyToken, async (req, res) => {
+router.post("/update", verifyToken, uploader.array('images', 5), async (req, res) => {
     const { id, ...updateData } = req.body
 
     if (!id) return res.status(400).send({ status: "error", msg: "Service ID is required" })
@@ -57,6 +104,37 @@ router.post("/update", verifyToken, async (req, res) => {
     }
 
     try {
+        const service = await Service.findById(id)
+        if (!service) {
+            return res.status(404).send({ status: "error", msg: "Service not found" })
+        }
+        
+        // Handle new image uploads
+        if (req.files && req.files.length > 0) {
+            // Delete old images from Cloudinary first
+            if (service.images && service.images.length > 0) {
+                for (const img of service.images) {
+                    await cloudinary.uploader.destroy(img.img_id)
+                }
+            }
+                
+            // Upload new ones
+            const uploadedImages = []
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path, { folder: 'service-images' })
+        
+                // Generate thumbnail URL (on the fly using Cloudinary URL transformation)
+                const thumbUrl = upload.secure_url.replace('/upload/', '/upload/w_200,h_200,c_fill/')
+        
+                uploadedImages.push({ img_id: upload.public_id, img_url: upload.secure_url,
+                    thumb_url: thumbUrl // can send to the frontend only
+                })
+            }
+                
+            updateData.images = uploadedImages
+        }
+        
+        updateData.timestamp = Date.now()
         const updatedService = await Service.findByIdAndUpdate(id, updateData, { new: true })
         if (!updatedService) return res.status(404).send({ status: "error", msg: "Service not found" })
 
