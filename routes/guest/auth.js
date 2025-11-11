@@ -222,7 +222,7 @@ router.post('/change_password', verifyToken, async(req, res)=>{
         const updatePassword = await bcrypt.hash(confirm_new_password, 10)
         await Guest.findByIdAndUpdate(req.user._id, {password: updatePassword})
 
-        return res.status(200).send({status: 'successful', msg: 'success'})
+        return res.status(200).send({status: 'ok', msg: 'success'})
     } catch (error) {
         if(error.name === 'JsonWebTokenError'){
         console.log(error)
@@ -267,11 +267,11 @@ router.post('/forgot_password', async (req, res) => {
         // Send email (or SMS later if implemented)
         await sendPasswordReset(guest.email || guest.phone_no, guest.fullname, resetToken)
 
-        return res.status(200).send({ status: 'ok', msg: 'success' })
+        return res.status(200).send({ status: 'ok', msg: 'Password reset link sent. Please check your email or phone.' })
 
     } catch (error) {
         console.error(error)
-        return res.status(500).send({ status: 'error', msg: 'Error sending password reset link', error: error.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: error.message })
     }
 })
 

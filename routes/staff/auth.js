@@ -68,7 +68,7 @@ router.post('/sign_in', async(req, res) => {
         staff = await Staff.findOneAndUpdate({_id: staff._id}, {is_online: true}, {new: true}).lean()
 
         //send response
-        res.status(200).send({status: 'ok', msg: 'Login Successful', staff, token})
+        res.status(200).send({status: 'ok', msg: 'success', staff, token})
         
     } catch (error) {
         console.log(error)
@@ -84,7 +84,7 @@ router.post('/logout', verifyToken, async(req, res) => {
         // Set staff offline
         await Staff.findByIdAndUpdate(staffId, { is_online: false })
     
-        return res.status(200).send({ status: 'ok', msg: 'Logout Successful' })
+        return res.status(200).send({ status: 'ok', msg: 'success' })
 
     } catch (error) {
         console.log(error)
@@ -133,13 +133,13 @@ router.post('/change_password', verifyToken, async(req, res)=>{
         const updatePassword = await bcrypt.hash(confirm_new_password, 10)
         await Staff.findByIdAndUpdate(req.user._id, {password: updatePassword})
 
-        return res.status(200).send({status: 'successful', msg: 'Password successfully changed'})
+        return res.status(200).send({status: 'ok', msg: 'success'})
     } catch (error) {
         if(error.name === 'JsonWebTokenError'){
         console.log(error)
         return res.status(401).send({status: 'error', msg: 'Token Verification Failed', error: error.message})
 }
-      return res.status(500).send({status: 'error', msg: 'An error occured while changing password', error: error.message})}
+      return res.status(500).send({status: 'error', msg: 'An error occured', error: error.message})}
 })
 
 
@@ -182,7 +182,7 @@ router.post('/forgot_password', async (req, res) => {
 
     } catch (error) {
         console.error(error)
-        return res.status(500).send({ status: 'error', msg: 'Error sending password reset link', error: error.message })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: error.message })
     }
 })
 
@@ -316,15 +316,13 @@ const resetPasswordCode = req.params.resetPasswordCode
     }
   })
   
-  // endpoint to reset password
-  router.post("/reset_password", async (req, res) => {
-    const { new_password, confirm_password, resetPasswordCode } = req.body
+// endpoint to reset password
+router.post("/reset_password", async (req, res) => {
+const { new_password, confirm_password, resetPasswordCode } = req.body
   
-    if (!new_password || !confirm_password || !resetPasswordCode) {
-      return res
-        .status(400)
-        .json({ status: "error", msg: "All fields must be entered" })
-    }
+if (!new_password || !confirm_password || !resetPasswordCode) {
+    return res.status(400).json({ status: "error", msg: "All fields must be entered" })
+}
 
     // Check password equality
     if (new_password !== confirm_password) {
