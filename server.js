@@ -33,7 +33,7 @@ app.use(express.json())
 app.use(express.urlencoded({extended: true}))
 
 
-//user routes
+//guest routes
 app.use('/guest_auth', require('./routes/guest/auth'))
 app.use('/guest_profile', require('./routes/guest/profile'))
 app.use('/guest_room', require('./routes/guest/room'))
