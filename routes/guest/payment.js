@@ -141,7 +141,7 @@ router.post('/confirm', async (req, res) => {
 
 
 // View guest's payments
-router.get('/view', verifyToken, async (req, res) => {
+router.post('/view', verifyToken, async (req, res) => {
     try {
         const { _id } = req.user
         const payments = await Payment.find({ guest: _id }).lean()

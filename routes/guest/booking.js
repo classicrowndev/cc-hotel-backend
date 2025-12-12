@@ -13,9 +13,9 @@ const { sendGuestBookingMail, sendGuestBookingCancellationMail } = require('../.
 
 // Create a new booking/reservation (Guest reserves a room)
 router.post('/create', verifyToken, async (req, res) => {
-    const { email, room_type, duration, no_of_guests, checkInDate, checkOutDate } = req.body
+    const { email, room_type, /*duration,*/ no_of_guests, checkInDate, checkOutDate } = req.body
 
-    if (!email || !room_type || !duration || !no_of_guests || !checkInDate || !checkOutDate) {
+    if (!email || !room_type || /*!duration ||*/ !no_of_guests || !checkInDate || !checkOutDate) {
         return res.status(400).send({ status: 'error', msg: 'All fields must be filled' })
     }
 
@@ -37,7 +37,7 @@ router.post('/create', verifyToken, async (req, res) => {
             room_no: room.name,
             room_type: room.type,
             amount,
-            duration,
+            //duration,
             no_of_guests,
             checkInDate,
             checkOutDate,

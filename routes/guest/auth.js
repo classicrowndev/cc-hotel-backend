@@ -433,7 +433,7 @@ const resetPasswordCode = req.params.resetPasswordCode
       const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET)
       const hashedPassword = await bcrypt.hash(new_password, 10)
 
-      console.log("Resetting password for user ID:", data._id)
+      console.log("Resetting password for guest ID:", data._id)
 
   
       // update the phone_no field

@@ -16,7 +16,7 @@ const uploader = require('../../utils/multer')
 router.post('/create_staff', verifyToken, async (req, res) => {
     try {
         if (!req.user || req.user.role !== 'Owner') {
-            return res.status(403).send({ status: 'error', msg: 'Access denied. Only owner can create accounts.' })
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only owner can create staff accounts.' })
         }
 
         const { fullname, email, password, phone_no, role, task } = req.body
