@@ -46,6 +46,7 @@ app.use('/guest_hall', require('./routes/guest/hall'))
 app.use('/guest_faq', require('./routes/guest/faq'))
 app.use('/guest_testimonial', require('./routes/guest/testimonial'))
 app.use('/guest_contact', require('./routes/guest/contact'))
+app.use('/guest_newsletter', require('./routes/guest/newsletter'))
 app.use('/guest_payment', require('./routes/guest/payment'))
 
 
