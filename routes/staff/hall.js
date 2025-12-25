@@ -24,55 +24,27 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], requiredTas
 
 
 // Add a new hall (Only Owner/Admin)
-router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) => {
-    const { name, type, price, capacity, description, amenities, availability } = req.body
-
-    if (!checkRole(req.user, ['Owner', 'Admin'], 'hall')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add halls.' })
-    }
-
+router.post("/add", verifyToken, uploader.any(), async (req, res) => {
     try {
-        let images = []
+        const { name, type, price, capacity, description, amenities, availability } = req.body
 
-        // Handle uploaded files first
-        if (req.files && req.files.length > 0) {
-            for (const file of req.files) {
-                const upload = await cloudinary.uploader.upload(file.path,
-                    { folder: "hall-images" })
-
-                    // Upload thumbnail
-                    const thumb = await cloudinary.uploader.upload(file.path, {
-                        folder: 'hall-images-thumbs',
-                        crop: 'fill',
-                        width: 200,
-                        height: 200,
-                        quality: 'auto'
-                    })
-                    
-                    images.push(
-                        { img_id: upload.public_id, img_url: upload.secure_url,
-                            thumb_id: thumb.public_id,thumb_url: thumb.secure_url
-                         }
-                )
-            }
+        if (!checkRole(req.user, ['Owner', 'Admin'], 'hall')) {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add halls.' })
         }
 
-        // Handle JSON images sent in the request body
-        let bodyImages = []
-        if (req.body.images) {
-            try {
-                // If images are sent as JSON string, parse it
-                bodyImages = typeof req.body.images === 'string' ? JSON.parse(req.body.images) : req.body.images;
-            } catch (err) {
-                return res.status(400).send({ status: "error", msg: "Invalid format for images", error: err.message });
-            }
+        const uploadedImages = []
 
-            if (Array.isArray(bodyImages) && bodyImages.length > 0) {
-                for (const img of bodyImages) {
-                    if (img.img_id && img.img_url) {
-                        images.push({ img_id: img.img_id, img_url: img.img_url });
-                    }
-                }
+        // Strictly use uploaded files
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path, {
+                    folder: "hall-images"
+                })
+
+                uploadedImages.push({
+                    img_id: upload.public_id,
+                    img_url: upload.secure_url
+                })
             }
         }
 
@@ -84,73 +56,86 @@ router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) =
             description,
             amenities,
             availability: availability || "Available",
-            images, // attach upload
+            images: uploadedImages,
             createdAt: Date.now(),
             timestamp: Date.now()
         })
 
         await newHall.save()
-        return res.status(200).send({ status: "ok", msg: "success", newHall })
+        return res.status(200).send({ status: "ok", msg: "success", file: uploadedImages, newHall })
     } catch (e) {
+        console.error(e)
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
-    }
+        }
         return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
 
 // Update hall details (Only Owner/Admin)
-router.post("/update", verifyToken, uploader.array('images', 5), async (req, res) => {
-    const { id, ...updateData } = req.body
-    if (!id) {
-        return res.status(400).send({ status: "error", msg: "Hall ID are required" })
-    }
-
-    if (!checkRole(req.user, ['Owner', 'Admin'], 'hall')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can update hall details.' })
-    }
-    
+router.post("/update", verifyToken, uploader.any(), async (req, res) => {
     try {
-        const hall = await Hall.findById(id)
+        const { id, name, type, price, capacity, description, amenities, availability } = req.body
+        if (!id) {
+            return res.status(400).send({ status: "error", msg: "Hall ID is required" })
+        }
+
+        if (!checkRole(req.user, ['Owner', 'Admin'], 'hall')) {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can update hall details.' })
+        }
+
+        let hall = await Hall.findById(id)
         if (!hall) {
             return res.status(404).send({ status: "error", msg: "Hall not found" })
         }
 
-        // Handle new image uploads
+        const uploadedImages = []
+
+        // If new images are uploaded, replace all old ones
         if (req.files && req.files.length > 0) {
-            // Delete old images from Cloudinary first
+            // Delete old images from Cloudinary
             if (hall.images && hall.images.length > 0) {
                 for (const img of hall.images) {
-                    await cloudinary.uploader.destroy(img.img_id)
+                    try {
+                        await cloudinary.uploader.destroy(img.img_id)
+                    } catch (err) {
+                        console.error("Cloudinary delete error:", err)
+                    }
                 }
             }
 
             // Upload new ones
-            const uploadedImages = []
             for (const file of req.files) {
                 const upload = await cloudinary.uploader.upload(file.path, { folder: 'hall-images' })
-
-                // Generate thumbnail URL (on the fly using Cloudinary URL transformation)
-                const thumbUrl = upload.secure_url.replace('/upload/', '/upload/w_200,h_200,c_fill/')
-
-                uploadedImages.push({ img_id: upload.public_id, img_url: upload.secure_url,
-                    thumb_url: thumbUrl // can send to the frontend only
-                 })
+                uploadedImages.push({
+                    img_id: upload.public_id,
+                    img_url: upload.secure_url
+                })
             }
-
-            updateData.images = uploadedImages
+            hall.images = uploadedImages
         }
 
-        updateData.timestamp = Date.now()
-        const updatedHall = await Hall.findByIdAndUpdate(id, updateData, { new: true })
+        // Update other fields
+        hall.name = name || hall.name
+        hall.type = type || hall.type
+        hall.price = price || hall.price
+        hall.capacity = capacity || hall.capacity
+        hall.description = description || hall.description
+        hall.amenities = amenities || hall.amenities
+        hall.availability = availability || hall.availability
+        hall.timestamp = Date.now()
 
-        if (!updatedHall) {
-            return res.status(404).send({ status: "error", msg: "Hall not found" })
-        }
+        await hall.save()
 
-        return res.status(200).send({ status: "ok", msg: "success", updatedHall })
+        return res.status(200).send({
+            status: "ok",
+            msg: "success",
+            file: uploadedImages.length > 0 ? uploadedImages : undefined,
+            updatedHall: hall
+        })
     } catch (e) {
+        console.error(e)
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
         }

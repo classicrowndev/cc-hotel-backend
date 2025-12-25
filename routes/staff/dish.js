@@ -24,76 +24,56 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], requiredTas
 
 
 // Add new dish (Owner/Admin only)
-router.post('/add', verifyToken, uploader.array('images', 5), async (req, res) => {
-    const { name, category, amount_per_portion, isReady, quantity } = req.body
-    if (!name || !category || amount_per_portion === undefined) {
-        return res.status(400).send({ status: 'error', msg: 'all fields are required' })
-    }
-
-    if (!checkRole(req.user, ['Owner', 'Admin'], 'dish')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add new dish.' })
-    }
-
+router.post('/add', verifyToken, uploader.any(), async (req, res) => {
     try {
-        let images = []
+        let { name, category, subCategory, amount_per_portion, isReady, quantity } = req.body
 
-        // Handle uploaded files first
-        if (req.files && req.files.length > 0) {
-            for (const file of req.files) {
-                const upload = await cloudinary.uploader.upload(file.path,{ 
-                    folder: "dish-images" 
-                })
-
-                // Upload thumbnail
-                const thumb = await cloudinary.uploader.upload(file.path, {
-                    folder: 'dish-images-thumbs',
-                    crop: 'fill',
-                    width: 200,
-                    height: 200,
-                    quality: 'auto'
-                })
-                    
-                images.push(
-                    { img_id: upload.public_id, img_url: upload.secure_url,
-                        thumb_id: thumb.public_id, thumb_url: thumb.secure_url
-                    }
-                )
-            }
+        // Case-insensitivity handling for subCategory
+        if (!subCategory) {
+            subCategory = req.body.subcategory || req.body.SubCategory
         }
 
-        // Handle JSON images sent in the request body
-        let bodyImages = []
-        if (req.body.images) {
-            try {
-                // If images are sent as JSON string, parse it
-                bodyImages = typeof req.body.images === 'string' ? JSON.parse(req.body.images) : req.body.images;
-            } catch (err) {
-                return res.status(400).send({ status: "error", msg: "Invalid format for images", error: err.message });
-            }
+        if (!name || !category || amount_per_portion === undefined) {
+            return res.status(400).send({ status: 'error', msg: 'all fields are required' })
+        }
 
-            if (Array.isArray(bodyImages) && bodyImages.length > 0) {
-                for (const img of bodyImages) {
-                    if (img.img_id && img.img_url) {
-                        images.push({ img_id: img.img_id, img_url: img.img_url });
-                    }
-                }
+        if (!checkRole(req.user, ['Owner', 'Admin'], 'dish')) {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add new dish.' })
+        }
+
+        const uploadedImages = []
+
+        // Strictly use uploaded files
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path, {
+                    folder: "dish-images"
+                })
+
+                uploadedImages.push({
+                    img_id: upload.public_id,
+                    img_url: upload.secure_url
+                })
             }
         }
 
         const dish = new Dish({
             name,
             category,
-            isReady: isReady === 'true' || isReady === true, // converts string "true" to boolean
+            subCategory,
+            isReady: isReady === 'true' || isReady === true,
             quantity: quantity ?? 0,
             amount_per_portion,
-            images, // attach upload
+            images: uploadedImages,
             date_added: Date.now(),
             timestamp: Date.now()
         })
 
         await dish.save()
-        return res.status(200).send({ status: 'ok', msg: 'success', dish })
+        return res.status(200).send({ status: 'ok', msg: 'success', file: uploadedImages, dish })
+
     } catch (e) {
+        console.error(e)
         if (e.name === 'JsonWebTokenError') return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
@@ -105,7 +85,7 @@ router.post('/all', verifyToken, async (req, res) => {
     if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'dish')) {
         return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
-    
+
     try {
         const dishes = await Dish.find().sort({ date_added: -1 })
         if (!dishes.length) {
@@ -148,56 +128,69 @@ router.post('/view', verifyToken, async (req, res) => {
 
 
 // Update dish (Owner/Admin only)
-router.post('/update', verifyToken, uploader.array('images', 5), async (req, res) => {
-    const { id, ...updateData } = req.body
-    if (!id) {
-        return res.status(400).send({ status: 'error', msg: 'Dish ID is required' })
-    }
-
-    if (!checkRole(req.user, ['Owner', 'Admin'], 'dish')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can update dish details.' })
-    }
-
-
+router.post('/update', verifyToken, uploader.any(), async (req, res) => {
     try {
-        const dish = await Dish.findById(id)
+        const { id, name, category, subCategory, amount_per_portion, isReady, quantity } = req.body
+
+        if (!id) {
+            return res.status(400).send({ status: 'error', msg: 'Dish ID is required' })
+        }
+
+        if (!checkRole(req.user, ['Owner', 'Admin'], 'dish')) {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can update dish details.' })
+        }
+
+        let dish = await Dish.findById(id)
         if (!dish) {
             return res.status(404).send({ status: "error", msg: "Dish not found" })
         }
 
-        // Handle new image uploads
+        const uploadedImages = []
+
+        // If new images are uploaded, replace all old ones
         if (req.files && req.files.length > 0) {
-            // Delete old images from Cloudinary first
+            // Delete old images from Cloudinary
             if (dish.images && dish.images.length > 0) {
                 for (const img of dish.images) {
-                    await cloudinary.uploader.destroy(img.img_id)
+                    try {
+                        await cloudinary.uploader.destroy(img.img_id)
+                    } catch (err) {
+                        console.error("Cloudinary delete error:", err)
+                    }
                 }
             }
-        
+
             // Upload new ones
-            const uploadedImages = []
             for (const file of req.files) {
                 const upload = await cloudinary.uploader.upload(file.path, { folder: 'dish-images' })
-
-                // Generate thumbnail URL (on the fly using Cloudinary URL transformation)
-                const thumbUrl = upload.secure_url.replace('/upload/', '/upload/w_200,h_200,c_fill/')
-
-                uploadedImages.push({ img_id: upload.public_id, img_url: upload.secure_url,
-                    thumb_url: thumbUrl // can send to the frontend only
+                uploadedImages.push({
+                    img_id: upload.public_id,
+                    img_url: upload.secure_url
                 })
             }
-        
-            updateData.images = uploadedImages
+            dish.images = uploadedImages
         }
 
-        updateData.timestamp = Date.now()
-        const updatedDish = await Dish.findByIdAndUpdate(id, updateData, { new: true })
-        if (!updatedDish) {
-            return res.status(404).send({ status: 'error', msg: 'Dish not found' })
-        }
+        // Update other fields
+        dish.name = name || dish.name
+        dish.category = category || dish.category
+        dish.subCategory = subCategory || req.body.subcategory || req.body.SubCategory || dish.subCategory
+        dish.amount_per_portion = amount_per_portion !== undefined ? amount_per_portion : dish.amount_per_portion
+        dish.isReady = isReady !== undefined ? (isReady === 'true' || isReady === true) : dish.isReady
+        dish.quantity = quantity !== undefined ? quantity : dish.quantity
+        dish.timestamp = Date.now()
 
-        return res.status(200).send({ status: 'ok', msg: 'success', dish: updatedDish })
+        await dish.save()
+
+        return res.status(200).send({
+            status: 'ok',
+            msg: 'success',
+            file: uploadedImages.length > 0 ? uploadedImages : undefined,
+            dish
+        })
+
     } catch (e) {
+        console.error(e)
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         }
@@ -250,7 +243,7 @@ router.post('/update_status', verifyToken, async (req, res) => {
     }
 
     try {
-        const updated = await Dish.findByIdAndUpdate(id, 
+        const updated = await Dish.findByIdAndUpdate(id,
             { isReady: isReady === 'true' || isReady === true, timestamp: Date.now() }, { new: true })
         if (!updated) {
             return res.status(404).send({ status: 'error', msg: 'Dish not found' })
@@ -277,8 +270,10 @@ router.post('/overview', verifyToken, async (req, res) => {
         const unavailable = await Dish.countDocuments({ isReady: false })
         const total_drinks = await Dish.countDocuments({ category: { $in: ['Bar & Drinks', 'Beverages'] } })
 
-        return res.status(200).send({ status: 'ok', msg: 'success',
-            overview: { total, available, unavailable, total_drinks }})
+        return res.status(200).send({
+            status: 'ok', msg: 'success',
+            overview: { total, available, unavailable, total_drinks }
+        })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
@@ -301,7 +296,11 @@ router.post('/search', verifyToken, async (req, res) => {
 
     try {
         const dishes = await Dish.find({
-            $or: [{ name: { $regex: keyword, $options: 'i' } }, { category: { $regex: keyword, $options: 'i' } }]
+            $or: [
+                { name: { $regex: keyword, $options: 'i' } },
+                { category: { $regex: keyword, $options: 'i' } },
+                { subCategory: { $regex: keyword, $options: 'i' } }
+            ]
         }).sort({ date_added: -1 })
 
         if (!dishes.length) {

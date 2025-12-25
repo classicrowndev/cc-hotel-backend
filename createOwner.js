@@ -23,7 +23,7 @@ mongoose.connect(process.env.MONGO_URI, {
     const owner = new Staff({
       fullname: 'Super Owner',
       email: 'soundmindev@gmail.com',
-      password: hashedPassword,
+      password: hashedPASS123,
       role: 'Owner'
     });
 

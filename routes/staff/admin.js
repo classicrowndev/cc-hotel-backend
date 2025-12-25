@@ -31,7 +31,7 @@ router.post('/create_staff', verifyToken, async (req, res) => {
 
         // Conditional validation: If role is 'Staff', task must be provided
         if (role === 'Staff' && !task) {
-            return res.status(400).send({ status: 'error', msg: 'Task is required for staff accounts.'})
+            return res.status(400).send({ status: 'error', msg: 'Task is required for staff accounts.' })
         }
 
         const existingStaff = await Staff.findOne({ email })
@@ -54,12 +54,13 @@ router.post('/create_staff', verifyToken, async (req, res) => {
 
         // Send confirmation mail
         await sendStaffAccountMail(email, password, fullname, role, task //'Staff'
-            )
+        )
 
         return res.status(201).send({
             status: 'ok',
             msg: 'success',
-            data: {id: newStaff._id, fullname: newStaff.fullname, email: newStaff.email, phone_no: newStaff.phone_no,
+            data: {
+                id: newStaff._id, fullname: newStaff.fullname, email: newStaff.email, phone_no: newStaff.phone_no,
                 role: newStaff.role, task: newStaff.task
             }
         })
@@ -71,9 +72,9 @@ router.post('/create_staff', verifyToken, async (req, res) => {
 
 
 // Admn edits staff account
-router.post("/edit_staff", verifyToken, uploader.single("profile_img"), async (req, res) => {
+router.post("/edit_staff", verifyToken, uploader.any(), async (req, res) => {
     try {
-        const { id, ...updateData } = req.body
+        const { id, fullname, email, phone_no, task, address } = req.body
 
         if (!id) return res.status(400).send({ status: "error", msg: "Staff ID is required" })
         if (!req.user || req.user.role !== "Admin")
@@ -82,38 +83,61 @@ router.post("/edit_staff", verifyToken, uploader.single("profile_img"), async (r
         let staff = await Staff.findById(id)
         if (!staff) return res.status(404).send({ status: "error", msg: "Staff not found" })
 
-        // Handle profile image
-        if (req.file) {
-            if (staff.img_id) await cloudinary.uploader.destroy(staff.img_id)
-            const upload = await cloudinary.uploader.upload(req.file.path, { folder: "staff-images" })
-            updateData.img_id = upload.public_id
-            updateData.img_url = upload.secure_url
-        }
+        const uploadedImages = []
 
-        // Handle task logic
-        if (staff.role === "Staff") {
-            if (updateData.task) {
-                updateData.task = Array.isArray(updateData.task) 
-                ? updateData.task 
-                : [updateData.task]
+        // Handle profile image upload
+        if (req.files && req.files.length > 0) {
+            // Delete old image from Cloudinary
+            if (staff.profile_img_id) {
+                try {
+                    await cloudinary.uploader.destroy(staff.profile_img_id)
+                } catch (err) {
+                    console.error("Cloudinary delete error:", err)
+                }
+            } else if (staff.img_id) {
+                try {
+                    await cloudinary.uploader.destroy(staff.img_id)
+                } catch (err) {
+                    console.error("Cloudinary delete error:", err)
+                }
             }
-        } else {
-            delete updateData.task  // prevent assigning tasks to non-staffs
+
+            // Upload new image (taking the first one since it's a single profile pic)
+            const file = req.files[0]
+            const upload = await cloudinary.uploader.upload(file.path, { folder: "staff-images" })
+
+            staff.profile_img_id = upload.public_id
+            staff.profile_img_url = upload.secure_url
+            // legacy fields
+            staff.img_id = upload.public_id
+            staff.img_url = upload.secure_url
+
+            uploadedImages.push({
+                img_id: upload.public_id,
+                img_url: upload.secure_url
+            })
         }
 
+        // Update other fields
+        staff.fullname = fullname || staff.fullname
+        staff.email = email || staff.email
+        staff.phone_no = phone_no || staff.phone_no
+        staff.address = address || staff.address
 
-        // Whitelist allowed fields for safety
-        const allowedFields = ["fullname", "email", "phone_no", "task", "address", "img_id", "img_url"]
-        Object.keys(updateData).forEach(key => {
-            if (!allowedFields.includes(key)) delete updateData[key]
+        // Handle task logic (Admin can only update tasks for Staff role)
+        if (staff.role === "Staff" && task) {
+            staff.task = Array.isArray(task) ? task : [task]
+        }
+
+        staff.updatedAt = Date.now()
+        await staff.save()
+
+        return res.status(200).send({
+            status: "ok",
+            msg: "success",
+            file: uploadedImages.length > 0 ? uploadedImages : undefined,
+            staff
         })
-
-        updateData.updatedAt = Date.now()
-
-        // Perform update
-        staff = await Staff.findByIdAndUpdate(id, updateData, { new: true })
-
-        return res.status(200).send({ status: "ok", msg: "success", staff })
     } catch (error) {
         console.error("Error editing account:", error);
         return res.status(500).send({ status: "error", msg: "An error occurred", error: error.message });

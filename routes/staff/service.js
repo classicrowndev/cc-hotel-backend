@@ -19,73 +19,45 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], requiredTas
 
 
 // Add a new service (Only Owner or Admin)
-router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) => {
-    const { service_type, name, description, price, status, image } = req.body
-
-    if (!checkRole(req.user, ['Owner', 'Admin'], 'service')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add new service.' })
-    }
-
+router.post("/add", verifyToken, uploader.any(), async (req, res) => {
     try {
-        let images = []
-        
-        // Handle uploaded files first
+        const { service_type, name, description, price, status } = req.body
+
+        if (!checkRole(req.user, ['Owner', 'Admin'], 'service')) {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add new service.' })
+        }
+
+        const uploadedImages = []
+
+        // Strictly use uploaded files
         if (req.files && req.files.length > 0) {
             for (const file of req.files) {
-                const upload = await cloudinary.uploader.upload(file.path,{ 
-                    folder: "service-images" 
+                const upload = await cloudinary.uploader.upload(file.path, {
+                    folder: "service-images"
                 })
-        
-                // Upload thumbnail
-                const thumb = await cloudinary.uploader.upload(file.path, {
-                    folder: 'service-images-thumbs',
-                    crop: 'fill',
-                    width: 200,
-                    height: 200,
-                    quality: 'auto'
+
+                uploadedImages.push({
+                    img_id: upload.public_id,
+                    img_url: upload.secure_url
                 })
-                            
-                images.push(
-                    { img_id: upload.public_id, img_url: upload.secure_url,
-                        thumb_id: thumb.public_id, thumb_url: thumb.secure_url
-                    }
-                )
             }
         }
-        
-        // Handle JSON images sent in the request body
-        let bodyImages = []
-        if (req.body.images) {
-            try {
-                // If images are sent as JSON string, parse it
-                bodyImages = typeof req.body.images === 'string' ? JSON.parse(req.body.images) : req.body.images;
-            } catch (err) {
-                return res.status(400).send({ status: "error", msg: "Invalid format for images", error: err.message });
-            }
-        
-            if (Array.isArray(bodyImages) && bodyImages.length > 0) {
-                for (const img of bodyImages) {
-                    if (img.img_id && img.img_url) {
-                        images.push({ img_id: img.img_id, img_url: img.img_url });
-                    }
-                }
-            }
-        }
-        
+
         const newService = new Service({
             service_type,
             name,
             description,
             price,
             status: status || "Available",
-            image,
+            image: uploadedImages,
             timestamp: Date.now()
         })
 
         await newService.save()
-        return res.status(200).send({ status: "ok", msg: "success", newService })
+        return res.status(200).send({ status: "ok", msg: "success", file: uploadedImages, newService })
 
     } catch (e) {
+        console.error(e)
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
         }
@@ -95,53 +67,66 @@ router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) =
 
 
 // Update service details (Only Owner & Admin)
-router.post("/update", verifyToken, uploader.array('images', 5), async (req, res) => {
-    const { id, ...updateData } = req.body
-
-    if (!id) return res.status(400).send({ status: "error", msg: "Service ID is required" })
-
-    if (!checkRole(req.user, ['Owner', 'Admin'], 'service')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can update service details.' })
-    }
-
+router.post("/update", verifyToken, uploader.any(), async (req, res) => {
     try {
-        const service = await Service.findById(id)
+        const { id, service_type, name, description, price, status } = req.body
+
+        if (!id) return res.status(400).send({ status: "error", msg: "Service ID is required" })
+
+        if (!checkRole(req.user, ['Owner', 'Admin'], 'service')) {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can update service details.' })
+        }
+
+        let service = await Service.findById(id)
         if (!service) {
             return res.status(404).send({ status: "error", msg: "Service not found" })
         }
-        
-        // Handle new image uploads
+
+        const uploadedImages = []
+
+        // If new images are uploaded, replace all old ones
         if (req.files && req.files.length > 0) {
-            // Delete old images from Cloudinary first
-            if (service.images && service.images.length > 0) {
-                for (const img of service.images) {
-                    await cloudinary.uploader.destroy(img.img_id)
+            // Delete old images from Cloudinary
+            if (service.image && service.image.length > 0) {
+                for (const img of service.image) {
+                    try {
+                        await cloudinary.uploader.destroy(img.img_id)
+                    } catch (err) {
+                        console.error("Cloudinary delete error:", err)
+                    }
                 }
             }
-                
+
             // Upload new ones
-            const uploadedImages = []
             for (const file of req.files) {
                 const upload = await cloudinary.uploader.upload(file.path, { folder: 'service-images' })
-        
-                // Generate thumbnail URL (on the fly using Cloudinary URL transformation)
-                const thumbUrl = upload.secure_url.replace('/upload/', '/upload/w_200,h_200,c_fill/')
-        
-                uploadedImages.push({ img_id: upload.public_id, img_url: upload.secure_url,
-                    thumb_url: thumbUrl // can send to the frontend only
+                uploadedImages.push({
+                    img_id: upload.public_id,
+                    img_url: upload.secure_url
                 })
             }
-                
-            updateData.images = uploadedImages
+            service.image = uploadedImages
         }
-        
-        updateData.timestamp = Date.now()
-        const updatedService = await Service.findByIdAndUpdate(id, updateData, { new: true })
-        if (!updatedService) return res.status(404).send({ status: "error", msg: "Service not found" })
 
-        return res.status(200).send({ status: "ok", msg: "success", updatedService })
+        // Update other fields
+        service.service_type = service_type || service.service_type
+        service.name = name || service.name
+        service.description = description || service.description
+        service.price = price || service.price
+        service.status = status || service.status
+        service.timestamp = Date.now()
+
+        await service.save()
+
+        return res.status(200).send({
+            status: "ok",
+            msg: "success",
+            file: uploadedImages.length > 0 ? uploadedImages : undefined,
+            updatedService: service
+        })
 
     } catch (e) {
+        console.error(e)
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
         }
@@ -152,7 +137,7 @@ router.post("/update", verifyToken, uploader.array('images', 5), async (req, res
 
 // View all services (Owner/Admin or Assigned Staff)
 router.post("/all", verifyToken, async (req, res) => {
-   if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'service')) {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'service')) {
         return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 

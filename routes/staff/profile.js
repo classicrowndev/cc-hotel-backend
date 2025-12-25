@@ -9,66 +9,58 @@ const uploader = require('../../utils/multer')
 
 
 
-// Edit Staff Profile
-router.post('/edit', uploader.single('profile_img'), verifyToken, async (req, res) => {
-    const { fullname, email, phone_no, address, gender, profile_img_url, profile_img_id } = req.body
-
+// endpoint to edit profile
+router.post('/edit', uploader.array('profile_img'), verifyToken, async (req, res) => {
     try {
-        let staff = await Staff.findById(req.user._id, {
-            fullname: 1,
-            email: 1,
-            phone_no: 1,
-            address: 1,
-            gender: 1,
-            profile_img_id: 1,
-            profile_img_url: 1
-        })
+        const { fullname, email, phone_no, address, gender } = req.body
 
-        if (!staff)
+        let staff = await Staff.findById(req.user._id);
+        if (!staff) {
             return res.status(404).send({ status: 'error', msg: 'Staff not found' })
+        }
 
-        // Default existing image data
-        let final_img_id = staff.profile_img_id
-        let final_img_url = staff.profile_img_url
+        const uploadedPhotos = []
 
-        // === Option 1: If new file uploaded ===
-        if (req.file) {
-            // Delete previous image if exists
+        // If new files are uploaded, process them
+        if (req.files && req.files.length > 0) {
+            // Delete previous image if it exists to replace it
             if (staff.profile_img_id) {
-                await cloudinary.uploader.destroy(staff.profile_img_id);
+                try {
+                    await cloudinary.uploader.destroy(staff.profile_img_id)
+                } catch (err) {
+                    console.error("Cloudinary delete error:", err)
+                }
             }
 
-            // Upload new image
-            const upload = await cloudinary.uploader.upload(req.file.path, {
-                folder: "staff-images"
-            })
+            // Upload each file
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path, {
+                    folder: "staff-images"
+                })
 
-            final_img_id = upload.public_id
-            final_img_url = upload.secure_url
+                // Update the profile with the last uploaded photo
+                staff.profile_img_url = upload.secure_url
+                staff.profile_img_id = upload.public_id
+
+                uploadedPhotos.push(upload)
+            }
         }
 
-        // === Option 2: If image info passed directly in body ===
-        else if (profile_img_url) {
-            // If both id and url passed, use both
-            final_img_id = profile_img_id || staff.profile_img_id
-            final_img_url = profile_img_url
-        }
+        // Update other fields
+        staff.fullname = fullname || staff.fullname
+        staff.email = email || staff.email
+        staff.phone_no = phone_no || staff.phone_no
+        staff.address = address || staff.address
+        staff.gender = gender || staff.gender
 
-        // === Update staff info ===
-        staff = await  Staff.findByIdAndUpdate(staff._id,
-            {
-                fullname: fullname || staff.fullname,
-                email: email || staff.email,
-                phone_no: phone_no || staff.phone_no,
-                address: address || staff.address,
-                gender: gender || staff.gender,
-                profile_img_id: final_img_id,
-                profile_img_url: final_img_url
-            },
-            { new: true }
-        ).lean()
+        await staff.save()
 
-        return res.status(200).send({ status: 'ok', msg: 'success', staff })
+        return res.status(200).send({
+            status: 'ok',
+            msg: 'success',
+            file: uploadedPhotos.length > 0 ? uploadedPhotos : undefined,
+            staff
+        })
 
     } catch (error) {
         console.error(error)
@@ -76,7 +68,10 @@ router.post('/edit', uploader.single('profile_img'), verifyToken, async (req, re
         if (error.name === "JsonWebTokenError")
             return res.status(400).send({ status: 'error', msg: 'Invalid token' })
 
-        return res.status(500).send({status: 'error', msg: 'Error occurred', error: error.message
+        return res.status(500).send({
+            status: 'error',
+            msg: 'Error occurred',
+            error: error.message
         })
     }
 })

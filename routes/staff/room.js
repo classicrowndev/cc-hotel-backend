@@ -24,55 +24,27 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], requiredTas
 
 
 // Add a new room (Only Owner/Admin)
-router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) => {
-    const { name, category, type, price, capacity, description, amenities, availability } = req.body
-
-    if (!checkRole(req.user, ['Owner', 'Admin'], 'room')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add rooms.' })
-    }
-
+router.post("/add", verifyToken, uploader.any(), async (req, res) => {
     try {
-        let images = []
+        const { name, category, type, price, capacity, description, amenities, availability } = req.body
 
-        // Handle uploaded files first
-        if (req.files && req.files.length > 0) {
-            for (const file of req.files) {
-                // Upload main image
-                const upload = await cloudinary.uploader.upload(file.path,
-                    { folder: "room-images" }
-                )
-
-                // Upload thumbnail
-                const thumb = await cloudinary.uploader.upload(file.path, {
-                    folder: 'room-images-thumbs',
-                    crop: 'fill',
-                    width: 200,
-                    height: 200,
-                    quality: 'auto'
-                })
-
-                images.push({ img_id: upload.public_id, img_url: upload.secure_url, 
-                    thumb_id: thumb.public_id, thumb_url: thumb.secure_url }
-                )
-            }
+        if (!checkRole(req.user, ['Owner', 'Admin'], 'room')) {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add rooms.' })
         }
 
-        // Handle JSON images sent in the request body
-        let bodyImages = []
-        if (req.body.images) {
-            try {
-                // If images are sent as JSON string, parse it
-                bodyImages = typeof req.body.images === 'string' ? JSON.parse(req.body.images) : req.body.images
-            } catch (err) {
-                return res.status(400).send({ status: "error", msg: "Invalid format for images", error: err.message })
-            }
+        const uploadedImages = []
 
-            if (Array.isArray(bodyImages) && bodyImages.length > 0) {
-                for (const img of bodyImages) {
-                    if (img.img_id && img.img_url) {
-                        images.push({ img_id: img.img_id, img_url: img.img_url });
-                    }
-                }
+        // Strictly use uploaded files
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path, {
+                    folder: "room-images"
+                })
+
+                uploadedImages.push({
+                    img_id: upload.public_id,
+                    img_url: upload.secure_url
+                })
             }
         }
 
@@ -85,73 +57,87 @@ router.post("/add", verifyToken, uploader.array('images', 5), async (req, res) =
             description,
             amenities,
             availability: availability || "Available",
-            images, // attach upload
+            images: uploadedImages,
             createdAt: Date.now(),
             timestamp: Date.now()
         })
 
         await newRoom.save()
-        return res.status(200).send({ status: "ok", msg: "success", newRoom })
+        return res.status(200).send({ status: "ok", msg: "success", file: uploadedImages, newRoom })
     } catch (e) {
+        console.error(e)
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
-    }
+        }
         return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
 
 // Update room details (Only Owner/Admin)
-router.post("/update", verifyToken, uploader.array('images', 5), async (req, res) => {
-    const { id, ...updateData } = req.body
-    if (!id) {
-        return res.status(400).send({ status: "error", msg: "Room ID are required" })
-    }
-
-    if (!checkRole(req.user, ['Owner', 'Admin'], 'room')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can update room details.' })
-    }
-    
+router.post("/update", verifyToken, uploader.any(), async (req, res) => {
     try {
-        const room = await Room.findById(id)
+        const { id, name, category, type, price, capacity, description, amenities, availability } = req.body
+        if (!id) {
+            return res.status(400).send({ status: "error", msg: "Room ID is required" })
+        }
+
+        if (!checkRole(req.user, ['Owner', 'Admin'], 'room')) {
+            return res.status(403).send({ status: 'error', msg: 'Access denied. Only Admin or Owner can update room details.' })
+        }
+
+        let room = await Room.findById(id)
         if (!room) {
             return res.status(404).send({ status: "error", msg: "Room not found" })
         }
 
-        // Handle new image uploads
+        const uploadedImages = []
+
+        // If new images are uploaded, replace all old ones
         if (req.files && req.files.length > 0) {
-            // Delete old images from Cloudinary first
+            // Delete old images from Cloudinary
             if (room.images && room.images.length > 0) {
                 for (const img of room.images) {
-                    await cloudinary.uploader.destroy(img.img_id)
+                    try {
+                        await cloudinary.uploader.destroy(img.img_id)
+                    } catch (err) {
+                        console.error("Cloudinary delete error:", err)
+                    }
                 }
             }
 
             // Upload new ones
-            const uploadedImages = []
             for (const file of req.files) {
                 const upload = await cloudinary.uploader.upload(file.path, { folder: 'room-images' })
-
-                // Generate thumbnail URL (on the fly using Cloudinary URL transformation)
-                const thumbUrl = upload.secure_url.replace('/upload/', '/upload/w_200,h_200,c_fill/')
-
-                uploadedImages.push({ img_id: upload.public_id, img_url: upload.secure_url, 
-                    thumb_url: thumbUrl // can send to the frontend only
+                uploadedImages.push({
+                    img_id: upload.public_id,
+                    img_url: upload.secure_url
                 })
             }
-
-            updateData.images = uploadedImages
+            room.images = uploadedImages
         }
 
-        updateData.timestamp = Date.now()
-        const updatedRoom = await Room.findByIdAndUpdate(id, updateData, { new: true })
+        // Update other fields
+        room.name = name || room.name
+        room.category = category || room.category
+        room.type = type || room.type
+        room.price = price || room.price
+        room.capacity = capacity || room.capacity
+        room.description = description || room.description
+        room.amenities = amenities || room.amenities
+        room.availability = availability || room.availability
+        room.timestamp = Date.now()
 
-        if (!updatedRoom) {
-            return res.status(404).send({ status: "error", msg: "Room not found" })
-        }
+        await room.save()
 
-        return res.status(200).send({ status: "ok", msg: "success", updatedRoom })
+        return res.status(200).send({
+            status: "ok",
+            msg: "success",
+            file: uploadedImages.length > 0 ? uploadedImages : undefined,
+            updatedRoom: room
+        })
     } catch (e) {
+        console.error(e)
         if (e.name === "JsonWebTokenError") {
             return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
         }
@@ -234,9 +220,9 @@ router.post("/view", verifyToken, async (req, res) => {
         }
 
         const room = await Room.findById(id)
-        if (!room){
+        if (!room) {
             return res.status(404).send({ status: "error", msg: "Room not found" })
-    }
+        }
         return res.status(200).send({ status: "ok", msg: 'success', room })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {

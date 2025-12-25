@@ -61,68 +61,57 @@ const uploader = require('../../utils/multer')
 // })
 
 
-router.post('/edit', uploader.single('profile_img'), verifyToken, async (req, res) => {
-    const { fullname, email, phone_no, address, gender, profile_img_url, profile_img_id } = req.body
-
+// endpoint to edit profile
+router.post('/edit', uploader.array('profile_img'), verifyToken, async (req, res) => {
     try {
-        let guest = await Guest.findById(req.user._id, {
-            fullname: 1,
-            email: 1,
-            phone_no: 1,
-            address: 1,
-            gender: 1,
-            profile_img_id: 1,
-            profile_img_url: 1
-        })
+        const { fullname, email, phone_no, address, gender } = req.body
 
-        if (!guest)
+        let guest = await Guest.findById(req.user._id);
+        if (!guest) {
             return res.status(404).send({ status: 'error', msg: 'Guest not found' })
+        }
 
-        // Default existing image data
-        let final_img_id = guest.profile_img_id
-        let final_img_url = guest.profile_img_url
+        const uploadedPhotos = []
 
-        // === Option 1: If new file uploaded ===
-        if (req.file) {
-            // Delete previous image if exists
+        // If new files are uploaded, process them
+        if (req.files && req.files.length > 0) {
+            // Delete previous image if it exists to replace it
             if (guest.profile_img_id) {
-                await cloudinary.uploader.destroy(guest.profile_img_id);
+                try {
+                    await cloudinary.uploader.destroy(guest.profile_img_id)
+                } catch (err) {
+                    console.error("Cloudinary delete error:", err)
+                }
             }
 
-            // Upload new image
-            const upload = await cloudinary.uploader.upload(req.file.path, {
-                folder: "guest-images"
-            });
+            // Upload each file (following the requested pattern)
+            for (const file of req.files) {
+                const upload = await cloudinary.uploader.upload(file.path, {
+                    folder: "guest-images"
+                })
 
-            final_img_id = upload.public_id;
-            final_img_url = upload.secure_url;
+                // We update the profile with the last uploaded photo
+                guest.profile_img_url = upload.secure_url
+                guest.profile_img_id = upload.public_id
+
+                uploadedPhotos.push(upload)
+            }
         }
 
-        // === Option 2: If image info passed directly in body ===
-        else if (profile_img_url) {
-            // If both id and url passed, use both
-            final_img_id = profile_img_id || guest.profile_img_id
-            final_img_url = profile_img_url
-        }
+        // Update other fields
+        guest.fullname = fullname || guest.fullname
+        guest.email = email || guest.email
+        guest.phone_no = phone_no || guest.phone_no
+        guest.address = address || guest.address
+        guest.gender = gender || guest.gender
+        guest.updatedAt = Date.now()
 
-        // === Update guest info ===
-        guest = await Guest.findByIdAndUpdate(
-            guest._id,
-            {
-                fullname: fullname || guest.fullname,
-                email: email || guest.email,
-                phone_no: phone_no || guest.phone_no,
-                address: address || guest.address,
-                gender: gender || guest.gender,
-                profile_img_id: final_img_id,
-                profile_img_url: final_img_url
-            },
-            { new: true }
-        ).lean()
+        await guest.save()
 
         return res.status(200).send({
             status: 'ok',
             msg: 'success',
+            file: uploadedPhotos.length > 0 ? uploadedPhotos : undefined,
             guest
         })
 
@@ -143,20 +132,20 @@ router.post('/edit', uploader.single('profile_img'), verifyToken, async (req, re
 
 
 // endpoint to view profile
-router.post('/view', verifyToken, async(req, res) =>{
+router.post('/view', verifyToken, async (req, res) => {
     try {
         const guest = await Guest.findById(req.user._id).lean()
-        if(!guest)
-            return res.status(200).send({status: 'ok', msg: 'No Guest Found'})
+        if (!guest)
+            return res.status(200).send({ status: 'ok', msg: 'No Guest Found' })
 
-        return res.status(200).send({status: 'ok', msg: 'success', guest})
-        
+        return res.status(200).send({ status: 'ok', msg: 'success', guest })
+
     } catch (error) {
         console.log(error)
-        if(error.name == "JsonWebTokenError")
-            return res.status(400).send({status: 'error', msg: 'Invalid token'})
+        if (error.name == "JsonWebTokenError")
+            return res.status(400).send({ status: 'error', msg: 'Invalid token' })
 
-        return res.status(500).send({status: 'error', msg:'Error occured'})
+        return res.status(500).send({ status: 'error', msg: 'Error occured' })
     }
 })
 
