@@ -11,25 +11,16 @@ const { sendPasswordResetStaff } = require("../../utils/nodemailer")
 
 
 //endpoint to Login
-router.post('/sign_in', async(req, res) => {
-    const {email, phone_no, password} = req.body
-    if ((!email && !phone_no) || !password)
-        return res.status(400).send({status: 'error', msg: 'All fields must be filled'})
+router.post('/sign_in', async (req, res) => {
+    const { email, password } = req.body
+    if (!email || !password)
+        return res.status(400).send({ status: 'error', msg: 'All fields must be filled' })
 
     try {
-        // Corrected Query Logic
-        const conditions = []
-        if (email) conditions.push({ email })
-        if (phone_no) conditions.push({ phone_no })
-
-        if (conditions.length === 0) {
-            return res.status(400).send({ status: 'error', msg: 'Email or phone number required' });
-        }
-
-        // Fetch staff using only valid conditions
-        let staff = await Staff.findOne({ $or: conditions }).lean()
-        if(!staff) 
-            return res.status(400).send({status: 'error', msg:'No staff account found with the provided email or phone number'})
+        // Fetch staff using email
+        let staff = await Staff.findOne({ email }).lean()
+        if (!staff)
+            return res.status(400).send({ status: 'error', msg: 'No staff account found with the provided email' })
 
         // check if staff's account has been verified
         /*
@@ -41,7 +32,7 @@ router.post('/sign_in', async(req, res) => {
         if (staff.is_blocked === true) {
             return res.status(400).send({ status: "error", msg: "account blocked" })
         }
-        
+
         // check if banned
         if (staff.is_banned === true) {
             return res.status(400).send({ status: "error", msg: "account banned" })
@@ -54,118 +45,110 @@ router.post('/sign_in', async(req, res) => {
 
         //compare password
         const correct_password = await bcrypt.compare(password, staff.password)
-        if(!correct_password)
-            return res.status(400).send({status: 'error', msg:'Password is incorrect'})
+        if (!correct_password)
+            return res.status(400).send({ status: 'error', msg: 'Password is incorrect' })
 
         // create token
         const token = jwt.sign({
             _id: staff._id,
             email: staff.email,
             phone_no: staff.phone_no
-        }, process.env.JWT_SECRET, {expiresIn: '1h'})
+        }, process.env.JWT_SECRET, { expiresIn: '1h' })
 
         //update staff document to online
-        staff = await Staff.findOneAndUpdate({_id: staff._id}, {is_online: true}, {new: true}).lean()
+        staff = await Staff.findOneAndUpdate({ _id: staff._id }, { is_online: true }, { new: true }).lean()
 
         //send response
-        res.status(200).send({status: 'ok', msg: 'success', staff, token})
-        
+        res.status(200).send({ status: 'ok', msg: 'success', staff, token })
+
     } catch (error) {
         console.log(error)
-        return res.status(500).send({status: 'error', msg:'An error occured'})  
+        return res.status(500).send({ status: 'error', msg: 'An error occured' })
     }
 })
 
 //endpoint to Logout
-router.post('/logout', verifyToken, async(req, res) => {
+router.post('/logout', verifyToken, async (req, res) => {
     try {
         const staffId = req.user._id
 
         // Set staff offline
         await Staff.findByIdAndUpdate(staffId, { is_online: false })
-    
+
         return res.status(200).send({ status: 'ok', msg: 'success' })
 
     } catch (error) {
         console.log(error)
-        if(error == "JsonWebTokenError")
-            return res.status(400).send({status: 'error', msg: 'Invalid token'})
+        if (error == "JsonWebTokenError")
+            return res.status(400).send({ status: 'error', msg: 'Invalid token' })
 
-        return res.status(500).send({status: 'error', msg:'An error occured'})    
+        return res.status(500).send({ status: 'error', msg: 'An error occured' })
     }
 })
 
 // endpoint to change password
-router.post('/change_password', verifyToken, async(req, res)=>{
-    const {old_password, new_password, confirm_new_password} = req.body
+router.post('/change_password', verifyToken, async (req, res) => {
+    const { old_password, new_password, confirm_new_password } = req.body
 
     //check if fields are passed correctly
-    if(!old_password || !new_password || !confirm_new_password){
-       return res.status(400).send({status: 'error', msg: 'all fields must be filled'})
+    if (!old_password || !new_password || !confirm_new_password) {
+        return res.status(400).send({ status: 'error', msg: 'all fields must be filled' })
     }
 
     // get staff document and change password
     try {
-        const staff =  await Staff.findById(req.user._id).select("password")
+        const staff = await Staff.findById(req.user._id).select("password")
 
         if (!staff) {
-            return res.status(400).send({status:'error', msg:'Staff not found'})
+            return res.status(400).send({ status: 'error', msg: 'Staff not found' })
         }
 
         //Compare old password
         const check = await bcrypt.compare(old_password, staff.password)
-        if(!check){
-            return res.status(400).send({status:'error', msg:'old password is incorrect'})
+        if (!check) {
+            return res.status(400).send({ status: 'error', msg: 'old password is incorrect' })
         }
 
         //Prevent reusing old password
         const isSamePassword = await bcrypt.compare(new_password, staff.password)
-        if(isSamePassword){
-            return res.status(400).send({status:'error', msg:'New password must be different from the old password'})
+        if (isSamePassword) {
+            return res.status(400).send({ status: 'error', msg: 'New password must be different from the old password' })
         }
 
         //Confirm new passwords match
         if (new_password !== confirm_new_password) {
-            return res.status(400).send({status: 'error', msg: 'Password mismatch'})
+            return res.status(400).send({ status: 'error', msg: 'Password mismatch' })
         }
 
         //Hash new password and update
         const updatePassword = await bcrypt.hash(confirm_new_password, 10)
-        await Staff.findByIdAndUpdate(req.user._id, {password: updatePassword})
+        await Staff.findByIdAndUpdate(req.user._id, { password: updatePassword })
 
-        return res.status(200).send({status: 'ok', msg: 'success'})
+        return res.status(200).send({ status: 'ok', msg: 'success' })
     } catch (error) {
-        if(error.name === 'JsonWebTokenError'){
-        console.log(error)
-        return res.status(401).send({status: 'error', msg: 'Token Verification Failed', error: error.message})
-}
-      return res.status(500).send({status: 'error', msg: 'An error occured', error: error.message})}
+        if (error.name === 'JsonWebTokenError') {
+            console.log(error)
+            return res.status(401).send({ status: 'error', msg: 'Token Verification Failed', error: error.message })
+        }
+        return res.status(500).send({ status: 'error', msg: 'An error occured', error: error.message })
+    }
 })
 
 
 // endpoint for a staff to reset their password
 router.post('/forgot_password', async (req, res) => {
-    const { email, phone_no } = req.body
+    const { email } = req.body
 
-    if (!email && !phone_no) {
-        return res.status(400).send({ status: 'error', msg: 'Email or phone number is required' });
+    if (!email) {
+        return res.status(400).send({ status: 'error', msg: 'Email is required' });
     }
 
     try {
-        // Corrected Query Logic
-        const conditions = []
-        if (email) conditions.push({ email })
-        if (phone_no) conditions.push({ phone_no })
-
-        if (conditions.length === 0) {
-            return res.status(400).send({ status: 'error', msg: 'Email or phone number required' });
-        }
-
-        // Fetch staff using only valid conditions
-        let staff = await Staff.findOne({ $or: conditions }).lean()
+        // Fetch staff using email
+        let staff = await Staff.findOne({ email }).lean()
 
         if (!staff) {
-            return res.status(400).send({ status: 'error', msg: 'No staff account found with the provided email or phone' });
+            return res.status(400).send({ status: 'error', msg: 'No staff account found with the provided email' });
         }
 
         // Create reset token (expires in 10 min)
@@ -176,9 +159,9 @@ router.post('/forgot_password', async (req, res) => {
         );
 
         // Send email to staff email only
-        await sendPasswordResetStaff(staff.email  || staff.phone_no, staff.fullname, resetToken);
+        await sendPasswordResetStaff(staff.email, staff.fullname, resetToken);
 
-        return res.status(200).send({ status: 'ok', msg: 'Password reset link sent. Please check your email or phone.' })
+        return res.status(200).send({ status: 'ok', msg: 'Password reset link sent. Please check your email.' })
 
     } catch (error) {
         console.error(error)
@@ -189,18 +172,18 @@ router.post('/forgot_password', async (req, res) => {
 
 // endpoint to reset password webpage
 router.get("/reset_password/:resetPasswordCode", async (req, res) => {
-const resetPasswordCode = req.params.resetPasswordCode
+    const resetPasswordCode = req.params.resetPasswordCode
     try {
-      const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET)
-  
-      const sendTime = data.timestamp;
-      // check if more than 5 minutes has elapsed
-      const timestamp = Date.now()
-      if (timestamp > sendTime) {
-        console.log("handle the expiration of the request code")
-      }
-  
-      return res.send(`<!DOCTYPE html>
+        const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET)
+
+        const sendTime = data.timestamp;
+        // check if more than 5 minutes has elapsed
+        const timestamp = Date.now()
+        if (timestamp > sendTime) {
+            console.log("handle the expiration of the request code")
+        }
+
+        return res.send(`<!DOCTYPE html>
       <html>
           <head>
               <title>Forgot Password</title>
@@ -294,94 +277,94 @@ const resetPasswordCode = req.params.resetPasswordCode
       </html>`)
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
-          // Handle general JWT errors
-          console.error('JWT verification error:', e.message);
-          return res.status(401).send(`</div>
+            // Handle general JWT errors
+            console.error('JWT verification error:', e.message);
+            return res.status(401).send(`</div>
           <h1>Password Reset</h1>
           <p>Token verification failed</p>
           </div>`);
         } else if (e.name === 'TokenExpiredError') {
-          // Handle token expiration
-          console.error('Token has expired at:', e.expiredAt);
-          return res.status(401).send(`</div>
+            // Handle token expiration
+            console.error('Token has expired at:', e.expiredAt);
+            return res.status(401).send(`</div>
           <h1>Password Reset</h1>
           <p>Token expired</p>
           </div>`);
-        } 
-      console.log(e);
-      return res.status(200).send(`</div>
+        }
+        console.log(e);
+        return res.status(200).send(`</div>
       <h1>Password Reset</h1>
       <p>An error occured!!! ${e.message}</p>
       </div>`)
     }
-  })
-  
+})
+
 // endpoint to reset password
 router.post("/reset_password", async (req, res) => {
-const { new_password, confirm_password, resetPasswordCode } = req.body
-  
-if (!new_password || !confirm_password || !resetPasswordCode) {
-    return res.status(400).json({ status: "error", msg: "All fields must be entered" })
-}
+    const { new_password, confirm_password, resetPasswordCode } = req.body
+
+    if (!new_password || !confirm_password || !resetPasswordCode) {
+        return res.status(400).json({ status: "error", msg: "All fields must be entered" })
+    }
 
     // Check password equality
     if (new_password !== confirm_password) {
-    return res
-        .status(400)
-        .json({ status: "error", msg: "Passwords do not match" });
+        return res
+            .status(400)
+            .json({ status: "error", msg: "Passwords do not match" });
     }
 
     // (Optional) check minimum length / complexity on the server side too
     if (new_password.length < 11) {
-    return res
-        .status(400)
-        .json({ status: "error", msg: "Password must be at least 11 characters" });
+        return res
+            .status(400)
+            .json({ status: "error", msg: "Password must be at least 11 characters" });
     }
-  
+
     try {
-      const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET)
-      const hashedPassword = await bcrypt.hash(new_password, 10)
+        const data = jwt.verify(resetPasswordCode, process.env.JWT_SECRET)
+        const hashedPassword = await bcrypt.hash(new_password, 10)
 
-      console.log("Resetting password for staff ID:", data._id)
+        console.log("Resetting password for staff ID:", data._id)
 
-  
-      // update the phone_no field
-      await Staff.updateOne(
-        { _id: data._id },
-        {
-          $set: { password: hashedPassword } ,
-        }
-      );
-  
-      // return a response which is a web page
-      return res.status(200).send(`</div>
+
+        // update the phone_no field
+        await Staff.updateOne(
+            { _id: data._id },
+            {
+                $set: { password: hashedPassword },
+            }
+        );
+
+        // return a response which is a web page
+        return res.status(200).send(`</div>
       <h1>Reset Password</h1>
       <p>Your password has been reset successfully!!!</p>
       <p>You can now login with your new password.</p>
       </div>`);
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
-          // Handle general JWT errors
-          console.error('JWT verification error:', e.message);
-          return res.status(401).send(`</div>
+            // Handle general JWT errors
+            console.error('JWT verification error:', e.message);
+            return res.status(401).send(`</div>
           <h1>Password Reset</h1>
           <p>Token verification failed</p>
           </div>`);
         } else if (e.name === 'TokenExpiredError') {
-          // Handle token expiration
-          console.error('Token has expired at:', e.expiredAt);
-          return res.status(401).send(`</div>
+            // Handle token expiration
+            console.error('Token has expired at:', e.expiredAt);
+            return res.status(401).send(`</div>
           <h1>Password Reset</h1>
           <p>Token expired</p>
           </div>`);
-        } 
-      console.log("error", e);
-      return res.status(200).send(`</div>
+        }
+        console.log("error", e);
+        return res.status(200).send(`</div>
       <h1>Reset Password</h1>
       <p>An error occured!!! ${e.message}</p>
       </div>`)
     }
-  })
+})
 
 
 module.exports = router
