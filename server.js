@@ -13,7 +13,7 @@ app.use(cors({
     origin: '*', // Allow all origins for now
     credentials: true, // optional, only if frontend sends cookies
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'From']
 }))
 
 
