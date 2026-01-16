@@ -295,4 +295,56 @@ router.post("/delete", verifyToken, async (req, res) => {
     }
 })
 
+
+// Get available rooms (for new reservation dropdown)
+router.post("/available", verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'room')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
+    try {
+        const rooms = await Room.find({ availability: 'Available' }).select('name type price')
+        return res.status(200).send({ status: "ok", msg: "success", count: rooms.length, rooms })
+    } catch (e) {
+        if (e.name === "JsonWebTokenError") {
+            return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
+        }
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
+    }
+})
+
+
+// Get room statistics (for dashboard cards)
+router.post("/stats", verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'room')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
+    try {
+        const total = await Room.countDocuments()
+        const available = await Room.countDocuments({ availability: 'Available' })
+        const booked = await Room.countDocuments({ availability: 'Booked' })
+        const checkedIn = await Room.countDocuments({ availability: 'Checked-In' })
+        const maintenance = await Room.countDocuments({ availability: 'Under Maintenance' })
+
+        return res.status(200).send({
+            status: "ok",
+            msg: "success",
+            stats: {
+                total,
+                available,
+                booked,
+                checkedIn,
+                maintenance,
+                occupied: booked + checkedIn // Aggregate "occupied" usually means not available
+            }
+        })
+    } catch (e) {
+        if (e.name === "JsonWebTokenError") {
+            return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
+        }
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
+    }
+})
+
 module.exports = router

@@ -266,13 +266,14 @@ router.post('/overview', verifyToken, async (req, res) => {
 
     try {
         const total = await Dish.countDocuments()
-        const available = await Dish.countDocuments({ isReady: true })
+        const available = await Dish.countDocuments({ isReady: true, quantity: { $gt: 0 } })
         const unavailable = await Dish.countDocuments({ isReady: false })
+        const outOfStock = await Dish.countDocuments({ quantity: 0 })
         const total_drinks = await Dish.countDocuments({ category: { $in: ['Bar & Drinks', 'Beverages'] } })
 
         return res.status(200).send({
             status: 'ok', msg: 'success',
-            overview: { total, available, unavailable, total_drinks }
+            overview: { total, available, unavailable, outOfStock, total_drinks }
         })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {

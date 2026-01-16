@@ -1,9 +1,9 @@
 const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema({
-    id: {type: mongoose.Schema.Types.ObjectId, auto: true},
-    guest: {type: mongoose.Schema.Types.ObjectId, ref: "Guest", required: true},
-    email: {type: String, required: true},
+    id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+    guest: { type: mongoose.Schema.Types.ObjectId, ref: "Guest", required: true },
+    email: { type: String, required: true },
     dishes: [
         {
             name: String,
@@ -11,12 +11,14 @@ const orderSchema = new mongoose.Schema({
             price: Number
         }
     ],
-    status: {type: String, enum: ["Order Placed", "Preparing", "Order Served", "Order Delivered", "Order Cancelled"],
+    status: {
+        type: String, enum: ["Order Placed", "Preparing", "Order Served", "Order Delivered", "Order Cancelled"],
         default: "Order Placed"
     },
-    room: String, 
+    room: String,
     amount: Number,
-    order_date: {type: Date, default: Date.now},
+    payment_method: { type: String, enum: ["Cash", "Card", "Transfer", "Room Charge", "Pending"], default: "Pending" },
+    order_date: { type: Date, default: Date.now },
     timestamp: Number
 }, { collection: 'orders' })
 

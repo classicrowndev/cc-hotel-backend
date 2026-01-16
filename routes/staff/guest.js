@@ -8,7 +8,7 @@ const Guest = require('../../models/guest')
 const verifyToken = require('../../middleware/verifyToken')
 
 
-//Helper to check role access
+// Helper to check role access
 const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], requiredTask = null) => {
     if (!allowedRoles.includes(user.role))
         return false
@@ -18,29 +18,129 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], requiredTas
     return true
 }
 
-
-// View all guests (Owner/Admin or Assigned Staff)
-router.post("/all", verifyToken, async (req, res) => {
-   if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'guest')) {
-        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+// Get guest statistics
+router.post("/stats", verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'guest')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied.' })
     }
 
     try {
-        const guests = await Guest.find().sort({ timestamp: -1 })
-        if (guests.length === 0) return res.status(200).send({ status: "ok", msg: "No guests found" })
+        const totalGuests = await Guest.countDocuments({ is_deleted: false })
+        const activeGuests = await Guest.countDocuments({ status: "Active", is_deleted: false })
+        const suspendedGuests = await Guest.countDocuments({ status: "Suspended", is_deleted: false })
 
-        return res.status(200).send({ status: "ok", msg: 'success', count: guests.length, guests })
+        // Former/Deactivated
+        const formerGuests = await Guest.countDocuments({ status: "Deactivated", is_deleted: false })
+
+        res.status(200).send({
+            status: "ok",
+            msg: "success",
+            stats: {
+                total: totalGuests,
+                active: activeGuests,
+                former: formerGuests,
+                suspended: suspendedGuests,
+                repeatRate: "60%" // Placeholder for now as per UI
+            }
+        })
+    } catch (e) {
+        res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
+    }
+})
+
+// Add new guest
+router.post("/add", verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'guest')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied.' })
+    }
+
+    const { fullname, email, phone_no, gender, address, date_of_birth } = req.body
+    if (!fullname || !email || !phone_no) {
+        return res.status(400).send({ status: 'error', msg: 'Fullname, email and phone number are required' })
+    }
+
+    try {
+        const existing = await Guest.findOne({ email })
+        if (existing) return res.status(400).send({ status: 'error', msg: 'Guest with this email already exists' })
+
+        const guest = new Guest({
+            fullname,
+            email,
+            phone_no,
+            gender,
+            address,
+            date_of_birth,
+            timestamp: Date.now()
+        })
+        await guest.save()
+        res.status(200).send({ status: 'ok', msg: 'Guest added successfully', guest })
+    } catch (e) {
+        res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
+    }
+})
+
+// Update guest
+router.post("/update", verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'guest')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied.' })
+    }
+
+    const { id, fullname, email, phone_no, gender, address, date_of_birth, status } = req.body
+    if (!id) return res.status(400).send({ status: 'error', msg: 'Guest ID is required' })
+
+    try {
+        const guest = await Guest.findById(id)
+        if (!guest) return res.status(404).send({ status: 'error', msg: 'Guest not found' })
+
+        guest.fullname = fullname || guest.fullname
+        guest.email = email || guest.email
+        guest.phone_no = phone_no || guest.phone_no
+        guest.gender = gender || guest.gender
+        guest.address = address || guest.address
+        guest.date_of_birth = date_of_birth || guest.date_of_birth
+        guest.status = status || guest.status
+        guest.updatedAt = Date.now()
+
+        await guest.save()
+        res.status(200).send({ status: 'ok', msg: 'Guest updated successfully', guest })
+    } catch (e) {
+        res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
+    }
+})
+
+
+// View all guests (with Pagination)
+router.post("/all", verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'guest')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
+    const { page = 1, limit = 20 } = req.body
+    try {
+        const query = { is_deleted: false }
+        const count = await Guest.countDocuments(query)
+        const guests = await Guest.find(query)
+            .sort({ timestamp: -1 })
+            .limit(limit * 1)
+            .skip((page - 1) * limit)
+            .exec()
+
+        return res.status(200).send({
+            status: "ok",
+            msg: 'success',
+            count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: page,
+            guests
+        })
 
     } catch (e) {
-        if (e.name === "JsonWebTokenError") {
-            return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
-        }
         return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
 
-// View single guest (Staff can view only if assigned)
+// View single guest
 router.post('/view', verifyToken, async (req, res) => {
     const { id } = req.body
     if (!id) {
@@ -57,20 +157,17 @@ router.post('/view', verifyToken, async (req, res) => {
 
         return res.status(200).send({ status: 'ok', msg: 'success', guest })
     } catch (e) {
-        if (e.name === 'JsonWebTokenError') {
-            return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
-        }
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
     }
 })
 
 
-// Search for guests
+// Search for guests (with Pagination)
 router.post("/search", verifyToken, async (req, res) => {
-    const { name} = req.body
+    const { query, page = 1, limit = 20 } = req.body
 
-    if (!name) {
-        return res.status(400).send({status:'error', msg: 'Name is required'})
+    if (!query) {
+        return res.status(400).send({ status: 'error', msg: 'Search query is required' })
     }
 
     if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'guest')) {
@@ -78,19 +175,55 @@ router.post("/search", verifyToken, async (req, res) => {
     }
 
     try {
-        // Find the guests
-        const guests = await Guest.find({
-            name: { $regex: name, $options: "i" }
-        }).sort({date_added: -1})
-
-        if (!guests || guests.length === 0) {
-            return res.status(200).send({ status: 'ok', msg: "No guests found", count: 0, guests: [] })
+        const searchRegex = { $regex: query, $options: "i" }
+        const baseQuery = {
+            $or: [
+                { fullname: searchRegex },
+                { email: searchRegex },
+                { phone_no: searchRegex }
+            ],
+            is_deleted: false
         }
 
-        return res.status(200).send({status: 'ok', msg: 'success', count: guests.length, guests})
+        const count = await Guest.countDocuments(baseQuery)
+        const guests = await Guest.find(baseQuery)
+            .sort({ timestamp: -1 })
+            .limit(limit * 1)
+            .skip((page - 1) * limit)
+            .exec()
+
+        return res.status(200).send({
+            status: 'ok',
+            msg: 'success',
+            count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: page,
+            guests
+        })
     } catch (e) {
-        return res.status(500).send({status: 'error', msg:'Error occurred', error: e.message})
-    }  
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
+    }
+})
+
+// Export guests to CSV
+router.get("/export", verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin'])) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied.' })
+    }
+
+    try {
+        const guests = await Guest.find({ is_deleted: false }).lean()
+        let csv = "Fullname,Email,Phone,Gender,Status,Joined\n"
+        guests.forEach(g => {
+            csv += `${g.fullname},${g.email},${g.phone_no},${g.gender},${g.status},${new Date(g.createdAt).toLocaleDateString()}\n`
+        })
+
+        res.setHeader('Content-Type', 'text/csv')
+        res.setHeader('Content-Disposition', 'attachment; filename=guests.csv')
+        res.status(200).send(csv)
+    } catch (e) {
+        res.status(500).send({ status: "error", msg: "Export failed", error: e.message })
+    }
 })
 
 
@@ -102,11 +235,11 @@ router.post('/block', verifyToken, async (req, res) => {
         }
 
         const { id, block_reason } = req.body
-        if (!id || !block_reason ) {
+        if (!id || !block_reason) {
             return res.status(400).send({ status: 'error', msg: 'All fields are required' })
         }
 
-        const blocked = await Guest.findOneAndUpdate({ _id: id }, { is_blocked: true }, { new: true })
+        const blocked = await Guest.findOneAndUpdate({ _id: id }, { is_blocked: true, block_reason: block_reason }, { new: true })
         if (!blocked) {
             return res.status(404).send({ status: 'error', msg: 'Guest not found' })
         }
@@ -127,7 +260,7 @@ router.post('/unblock', verifyToken, async (req, res) => {
         }
 
         const { id } = req.body
-        if (!id ) {
+        if (!id) {
             return res.status(400).send({ status: 'error', msg: 'Guest ID is required' })
         }
 
@@ -181,7 +314,7 @@ router.post('/ban', verifyToken, async (req, res) => {
             return res.status(400).send({ status: 'error', msg: 'All fields are required' })
         }
 
-        const banned = await Guest.findOneAndUpdate({ _id: id }, { is_banned: true }, { new: true })
+        const banned = await Guest.findOneAndUpdate({ _id: id }, { is_banned: true, ban_reason: ban_reason }, { new: true })
         if (!banned) {
             return res.status(404).send({ status: 'error', msg: 'Guest not found' })
         }
@@ -202,7 +335,7 @@ router.post('/unban', verifyToken, async (req, res) => {
         }
 
         const { id } = req.body
-        if (!id ) {
+        if (!id) {
             return res.status(400).send({ status: 'error', msg: 'Guest ID is required' })
         }
 
@@ -251,12 +384,12 @@ router.post('/delete', verifyToken, async (req, res) => {
             return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
         }
 
-        const { id } = req.body
+        const { id, reason } = req.body
         if (!id) {
             return res.status(400).send({ status: 'error', msg: 'Guest ID is required' })
         }
 
-        const deleted = await Guest.findOneAndDelete({ _id: id })
+        const deleted = await Guest.findOneAndUpdate({ _id: id }, { is_deleted: true, deletionReason: reason || null }, { new: true })
         if (!deleted) {
             return res.status(404).send({ status: 'error', msg: 'Guest not found' })
         }

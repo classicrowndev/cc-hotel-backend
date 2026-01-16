@@ -89,7 +89,7 @@ router.post('/all', verifyToken, async (req, res) => {
     if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'booking')) {
         return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
-    
+
     try {
         const bookings = await Booking.find()
             .populate('guest', 'fullname email phone')
@@ -244,6 +244,131 @@ router.post('/search', verifyToken, async (req, res) => {
         if (e.name === 'JsonWebTokenError')
             return res.status(400).send({ status: 'error', msg: 'Invalid or expired token.' })
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
+    }
+})
+
+
+// Get reservation statistics (for Room Service dashboard cards)
+router.post('/stats', verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'booking')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
+    try {
+        const total = await Booking.countDocuments()
+        const confirmed = await Booking.countDocuments({ status: 'Booked' })
+        const checkedIn = await Booking.countDocuments({ status: 'Checked-in' })
+        const pending = await Booking.countDocuments({ status: 'Overdue' })
+        const cancelled = await Booking.countDocuments({ status: 'Cancelled' })
+
+        return res.status(200).send({
+            status: "ok",
+            msg: "success",
+            stats: {
+                total,
+                confirmed,
+                checkedIn,
+                pending,
+                cancelled
+            }
+        })
+    } catch (e) {
+        if (e.name === "JsonWebTokenError") {
+            return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
+        }
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
+    }
+})
+
+
+// Filter bookings (0wner/Admin/Assigned staff)
+router.post('/filter', verifyToken, async (req, res) => {
+    const { status, startDate, endDate } = req.body
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'booking')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
+    try {
+        const query = {}
+        if (status) query.status = status
+        if (startDate && endDate) {
+            query.checkInDate = { $gte: new Date(startDate), $lte: new Date(endDate) }
+        }
+
+        const bookings = await Booking.find(query)
+            .populate('guest', 'fullname email phone')
+            .populate('room', 'name type price')
+            .sort({ timestamp: -1 })
+
+        if (!bookings.length)
+            return res.status(200).send({ status: 'ok', msg: 'No bookings found matching filter' })
+
+        return res.status(200).send({ status: 'ok', msg: 'success', count: bookings.length, bookings })
+    } catch (e) {
+        if (e.name === 'JsonWebTokenError')
+            return res.status(400).send({ status: 'error', msg: 'Invalid or expired token.' })
+        return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
+    }
+})
+
+
+// Update booking details
+router.post('/update', verifyToken, async (req, res) => {
+    const { id, guest_id, email, room_id, amount, duration, no_of_guests, checkInDate, checkOutDate, status } = req.body
+
+    if (!id) return res.status(400).send({ status: "error", msg: "Booking ID is required" })
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'booking')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
+    try {
+        let booking = await Booking.findById(id)
+        if (!booking) return res.status(404).send({ status: "error", msg: "Booking not found" })
+
+        // If room is changing, handle availability
+        if (room_id && room_id.toString() !== booking.room.toString()) {
+            const oldRoom = await Room.findById(booking.room)
+            if (oldRoom) {
+                oldRoom.availability = 'Available'
+                await oldRoom.save()
+            }
+
+            const newRoom = await Room.findById(room_id)
+            if (!newRoom) return res.status(404).send({ status: "error", msg: "New room not found" })
+            if (newRoom.availability !== 'Available') return res.status(400).send({ status: "error", msg: "New room is not available" })
+
+            newRoom.availability = 'Booked' // or status mapping
+            await newRoom.save()
+            booking.room = newRoom._id
+            booking.room_no = newRoom.name
+            booking.room_type = newRoom.type
+        }
+
+        if (guest_id) {
+            const guest = await Guest.findById(guest_id)
+            if (!guest) return res.status(404).send({ status: "error", msg: "Guest not found" })
+            booking.guest = guest._id
+        }
+
+        booking.email = email || booking.email
+        booking.amount = amount || booking.amount
+        booking.duration = duration || booking.duration
+        booking.no_of_guests = no_of_guests || booking.no_of_guests
+        booking.checkInDate = checkInDate || booking.checkInDate
+        booking.checkOutDate = checkOutDate || booking.checkOutDate
+        booking.status = status || booking.status
+        booking.timestamp = Date.now()
+
+        await booking.save()
+        return res.status(200).send({ status: "ok", msg: "success", booking })
+
+    } catch (e) {
+        if (e.name === "JsonWebTokenError") {
+            return res.status(400).send({ status: "error", msg: "Invalid token", error: e.message })
+        }
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 

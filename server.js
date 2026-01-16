@@ -10,10 +10,10 @@ const cors = require('cors')
 
 // Allow any origin during development
 app.use(cors({
-    origin: '*', // Allow all origins for now
-    credentials: true, // optional, only if frontend sends cookies
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'From']
+  origin: '*', // Allow all origins for now
+  credentials: true, // optional, only if frontend sends cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'From']
 }))
 
 
@@ -30,7 +30,7 @@ db.on('error', (err) => console.error('MongoDB connection error:', err))
 db.once('open', () => console.log('Connected to MongoDB'))
 
 app.use(express.json())
-app.use(express.urlencoded({extended: true}))
+app.use(express.urlencoded({ extended: true }))
 
 
 //guest routes
@@ -52,12 +52,15 @@ app.use('/guest_payment', require('./routes/guest/payment'))
 
 
 //staff routes
-app.use('/staff_owner', require('./routes/staff/owner'))
-app.use('/staff_admin', require('./routes/staff/admin'))
 app.use('/staff_auth', require('./routes/staff/auth'))
 app.use('/staff_profile', require('./routes/staff/profile'))
 app.use('/staff_dashboard', require('./routes/staff/dashboard'))
+app.use('/staff_admin', require('./routes/staff/staff')) // Alias
+app.use('/staff_owner', require('./routes/staff/staff')) // Alias
 app.use('/staff_guest', require('./routes/staff/guest'))
+app.use('/staff_staff', require('./routes/staff/staff'))
+app.use('/staff_supplier', require('./routes/staff/supplier'))
+app.use('/staff_inventory', require('./routes/staff/inventory'))
 app.use('/staff_room', require('./routes/staff/room'))
 app.use('/staff_service', require('./routes/staff/service'))
 app.use('/staff_serviceRequest', require('./routes/staff/serviceRequest'))
@@ -71,8 +74,8 @@ app.use('/staff_faq', require('./routes/staff/faq'))
 app.use('/staff_testimonial', require('./routes/staff/testimonial'))
 
 const port = process.env.PORT || 1000
-app.listen(port , ()=>{
-    console.log(`server listening at port ${port}`)
+app.listen(port, () => {
+  console.log(`server listening at port ${port}`)
 })
 
 module.exports = app
