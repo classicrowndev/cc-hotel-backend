@@ -7,6 +7,18 @@ const serviceRequestSchema = new mongoose.Schema({
     service: { type: mongoose.Schema.Types.ObjectId, ref: "Service", required: true },
     room: { type: String, required: true },
     amount: { type: Number, required: true },
+    duration: { type: String }, // e.g. "1 hour", "3 sessions"
+    delivery_date: { type: Date },
+    payment_method: {
+        type: String,
+        enum: ['Cash', 'POS', 'Transfer', 'N/A'],
+        default: 'N/A'
+    },
+    payment_status: {
+        type: String,
+        enum: ["Paid", "Pending", "Failed"],
+        default: "Pending"
+    },
     status: {
         type: String,
         enum: ["Pending", "In Progress", "Completed", "Cancelled"],

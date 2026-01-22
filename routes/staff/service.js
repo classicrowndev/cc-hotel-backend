@@ -3,6 +3,7 @@ const router = express.Router()
 
 const verifyToken = require('../../middleware/verifyToken') // your middleware
 const Service = require("../../models/service")
+const ServiceRequest = require("../../models/serviceRequest")
 const cloudinary = require('../../utils/cloudinary')
 const uploader = require('../../utils/multer')
 
@@ -21,7 +22,10 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], requiredTas
 // Add a new service (Only Owner or Admin)
 router.post("/add", verifyToken, uploader.any(), async (req, res) => {
     try {
-        const { service_type, name, description, price, status } = req.body
+        const {
+            service_type, name, secondary_name, description, price, status,
+            duration_type, allow_discount, discount_min_duration, discount_percentage
+        } = req.body
 
         if (!checkRole(req.user, ['Owner', 'Admin'], 'service')) {
             return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add new service.' })
@@ -46,8 +50,13 @@ router.post("/add", verifyToken, uploader.any(), async (req, res) => {
         const newService = new Service({
             service_type,
             name,
+            secondary_name,
             description,
             price,
+            duration_type,
+            allow_discount: allow_discount === 'true' || allow_discount === true,
+            discount_min_duration,
+            discount_percentage,
             status: status || "Available",
             image: uploadedImages,
             timestamp: Date.now()
@@ -69,7 +78,10 @@ router.post("/add", verifyToken, uploader.any(), async (req, res) => {
 // Update service details (Only Owner & Admin)
 router.post("/update", verifyToken, uploader.any(), async (req, res) => {
     try {
-        const { id, service_type, name, description, price, status } = req.body
+        const {
+            id, service_type, name, secondary_name, description, price, status,
+            duration_type, allow_discount, discount_min_duration, discount_percentage
+        } = req.body
 
         if (!id) return res.status(400).send({ status: "error", msg: "Service ID is required" })
 
@@ -111,8 +123,16 @@ router.post("/update", verifyToken, uploader.any(), async (req, res) => {
         // Update other fields
         service.service_type = service_type || service.service_type
         service.name = name || service.name
+        service.secondary_name = secondary_name || service.secondary_name
         service.description = description || service.description
         service.price = price || service.price
+        service.duration_type = duration_type || service.duration_type
+
+        if (typeof allow_discount !== 'undefined') {
+            service.allow_discount = allow_discount === 'true' || allow_discount === true
+        }
+        service.discount_min_duration = discount_min_duration || service.discount_min_duration
+        service.discount_percentage = discount_percentage || service.discount_percentage
         service.status = status || service.status
         service.timestamp = Date.now()
 
@@ -137,6 +157,8 @@ router.post("/update", verifyToken, uploader.any(), async (req, res) => {
 
 // View all services (Owner/Admin or Assigned Staff)
 router.post("/all", verifyToken, async (req, res) => {
+    const { search } = req.body
+
     if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'service')) {
         return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
@@ -147,7 +169,12 @@ router.post("/all", verifyToken, async (req, res) => {
             return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to service operations." })
         }
 
-        const services = await Service.find().sort({ timestamp: -1 })
+        let query = {}
+        if (search) {
+            query.name = { $regex: search, $options: 'i' }
+        }
+
+        const services = await Service.find(query).sort({ timestamp: -1 })
         if (services.length === 0) return res.status(200).send({ status: "ok", msg: "No services found" })
 
         return res.status(200).send({ status: "ok", msg: 'success', count: services.length, services })
@@ -180,7 +207,15 @@ router.post("/view", verifyToken, async (req, res) => {
         const service = await Service.findById(id)
         if (!service) return res.status(404).send({ status: "error", msg: "Service not found" })
 
-        return res.status(200).send({ status: "ok", msg: 'success', service })
+        // Compute extra stats
+        const lastBooking = await ServiceRequest.findOne({ service: id }).sort({ request_date: -1 })
+        const totalBookings = await ServiceRequest.countDocuments({ service: id })
+
+        const serviceData = service.toObject()
+        serviceData.last_booked = lastBooking ? lastBooking.request_date : null
+        serviceData.total_bookings = totalBookings
+
+        return res.status(200).send({ status: "ok", msg: 'success', service: serviceData })
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
@@ -206,6 +241,54 @@ router.post("/delete", verifyToken, async (req, res) => {
         if (!deletedService) return res.status(404).send({ status: "error", msg: "Service not found" })
 
         return res.status(200).send({ status: "ok", msg: "success", deletedService })
+
+    } catch (e) {
+        if (e.name === "JsonWebTokenError") {
+            return res.status(400).send({ status: "error", msg: "Token verification failed", error: e.message })
+        }
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
+    }
+})
+
+// Export services to CSV (Owner/Admin or Assigned Staff)
+router.post("/export", verifyToken, async (req, res) => {
+    const { search } = req.body
+
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'service')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+
+    try {
+        if (req.user.role === "Staff" && req.user.task !== "service") {
+            return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to service operations." })
+        }
+
+        let query = {}
+        if (search) {
+            query.name = { $regex: search, $options: 'i' }
+        }
+
+        const services = await Service.find(query).sort({ timestamp: -1 }).lean()
+
+        // Generate CSV
+        const fields = ['Name', 'Type', 'Price', 'Duration', 'Discount', 'Status']
+        let csv = fields.join(',') + '\n'
+
+        services.forEach(s => {
+            const row = [
+                `"${s.name}"`,
+                s.service_type,
+                s.price,
+                s.duration_type || "",
+                s.allow_discount ? `${s.discount_percentage}% (> ${s.discount_min_duration})` : "None",
+                s.status
+            ]
+            csv += row.join(',') + '\n'
+        })
+
+        res.header('Content-Type', 'text/csv')
+        res.attachment('services.csv')
+        return res.send(csv)
 
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
