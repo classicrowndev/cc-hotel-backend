@@ -18,6 +18,18 @@ router.post("/stats", verifyToken, async (req, res) => {
             { $group: { _id: null, total: { $sum: { $multiply: ["$stock", "$price"] } } } }
         ])
 
+        // Calculate damaged stats
+        const damagedStats = await Inventory.aggregate([
+            { $match: { type, damaged_stock: { $gt: 0 } } },
+            {
+                $group: {
+                    _id: null,
+                    count: { $sum: "$damaged_stock" }, // total count of damaged individual units
+                    value: { $sum: { $multiply: ["$damaged_stock", "$price"] } }
+                }
+            }
+        ])
+
         const lowStockItems = await Inventory.countDocuments({ type, status: "Low Stock" })
         const outOfStockItems = await Inventory.countDocuments({ type, status: "Out of Stock" })
 
@@ -28,7 +40,9 @@ router.post("/stats", verifyToken, async (req, res) => {
                 totalItems,
                 totalValue: totalStockValue.length > 0 ? totalStockValue[0].total : 0,
                 lowStock: lowStockItems,
-                outOfStock: outOfStockItems
+                outOfStock: outOfStockItems,
+                damagedItems: damagedStats.length > 0 ? damagedStats[0].count : 0,
+                damagedValue: damagedStats.length > 0 ? damagedStats[0].value : 0
             }
         })
     } catch (e) {
@@ -36,13 +50,17 @@ router.post("/stats", verifyToken, async (req, res) => {
     }
 })
 
-// Get all unique categories for an inventory type
+// Get categories with item counts
 router.post("/categories", verifyToken, async (req, res) => {
     const { type } = req.body
     if (!type) return res.status(400).send({ status: "error", msg: "Inventory type is required" })
 
     try {
-        const categories = await Inventory.distinct("category", { type })
+        const categories = await Inventory.aggregate([
+            { $match: { type } },
+            { $group: { _id: "$category", count: { $sum: 1 } } },
+            { $project: { name: "$_id", count: 1, _id: 0 } }
+        ])
         res.status(200).send({ status: "ok", msg: "success", categories })
     } catch (e) {
         res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
@@ -51,12 +69,19 @@ router.post("/categories", verifyToken, async (req, res) => {
 
 // View all inventory items (Filtered by Type with Pagination)
 router.post("/all", verifyToken, async (req, res) => {
-    const { type, page = 1, limit = 20, category } = req.body
+    const { type, page = 1, limit = 20, category, startDate, endDate } = req.body
     if (!type) return res.status(400).send({ status: "error", msg: "Inventory type is required" })
 
     try {
         const query = { type }
         if (category && category !== "All") query.category = category
+
+        // Date Filtering
+        if (startDate || endDate) {
+            query.last_updated = {};
+            if (startDate) query.last_updated.$gte = new Date(startDate);
+            if (endDate) query.last_updated.$lte = new Date(endDate);
+        }
 
         const count = await Inventory.countDocuments(query)
         const items = await Inventory.find(query)
@@ -86,7 +111,7 @@ router.post("/all", verifyToken, async (req, res) => {
 
 // Add new inventory item
 router.post("/add", verifyToken, uploader.any(), async (req, res) => {
-    const { name, type, category, location, description, unit_of_measurement, stock, price } = req.body
+    const { name, type, category, location, description, unit_of_measurement, stock, damaged_stock, supplier, price } = req.body
     if (!name || !type || !category) {
         return res.status(400).send({ status: "error", msg: "Required fields: name, type, category" })
     }
@@ -100,6 +125,8 @@ router.post("/add", verifyToken, uploader.any(), async (req, res) => {
             description: description || '',
             unit_of_measurement: unit_of_measurement || 'units',
             stock: Number(stock) || 0,
+            damaged_stock: Number(damaged_stock) || 0,
+            supplier: supplier || '',
             price: Number(price) || 0,
             timestamp: Date.now()
         }
@@ -126,7 +153,7 @@ router.post("/add", verifyToken, uploader.any(), async (req, res) => {
 
 // Update inventory item
 router.post("/update", verifyToken, uploader.any(), async (req, res) => {
-    const { id, name, location, description, unit_of_measurement, category, stock, price } = req.body
+    const { id, name, location, description, unit_of_measurement, category, stock, damaged_stock, supplier, price } = req.body
     if (!id) return res.status(400).send({ status: "error", msg: "Item ID is required" })
 
     try {
@@ -139,6 +166,8 @@ router.post("/update", verifyToken, uploader.any(), async (req, res) => {
         item.unit_of_measurement = unit_of_measurement || item.unit_of_measurement
         item.category = category || item.category
         if (stock !== undefined) item.stock = Number(stock)
+        if (damaged_stock !== undefined) item.damaged_stock = Number(damaged_stock)
+        item.supplier = supplier || item.supplier
         if (price !== undefined) item.price = Number(price)
         item.last_updated = Date.now()
 
@@ -184,7 +213,7 @@ router.post("/delete", verifyToken, async (req, res) => {
 
 // Search inventory (with Pagination)
 router.post("/search", verifyToken, async (req, res) => {
-    const { query, type, page = 1, limit = 20 } = req.body
+    const { query, type, page = 1, limit = 20, startDate, endDate } = req.body
     if (!query || !type) return res.status(400).send({ status: "error", msg: "Search query and type are required" })
 
     try {
@@ -195,8 +224,16 @@ router.post("/search", verifyToken, async (req, res) => {
                 { name: searchRegex },
                 { description: searchRegex },
                 { location: searchRegex },
-                { category: searchRegex }
+                { category: searchRegex },
+                { supplier: searchRegex }
             ]
+        }
+
+        // Date Filtering
+        if (startDate || endDate) {
+            baseQuery.last_updated = {};
+            if (startDate) baseQuery.last_updated.$gte = new Date(startDate);
+            if (endDate) baseQuery.last_updated.$lte = new Date(endDate);
         }
 
         const count = await Inventory.countDocuments(baseQuery)
@@ -222,6 +259,28 @@ router.post("/search", verifyToken, async (req, res) => {
         })
     } catch (e) {
         res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
+    }
+})
+
+// Export inventory to CSV
+router.get("/export", verifyToken, async (req, res) => {
+    const { type } = req.query
+    if (!type) return res.status(400).send({ status: "error", msg: "Inventory type is required" })
+
+    try {
+        const items = await Inventory.find({ type }).lean()
+        let csv = "Item,Supplier,Stock,Damaged,Units,Price per Unit,Total Value,Date Added\n"
+        items.forEach(i => {
+            const totalValue = (i.stock || 0) * (i.price || 0)
+            const dateAdded = i.last_updated ? new Date(i.last_updated).toLocaleDateString() : 'N/A'
+            csv += `${i.name},${i.supplier || 'N/A'},${i.stock},${i.damaged_stock},${i.unit_of_measurement},${i.price},${totalValue},${dateAdded}\n`
+        })
+
+        res.setHeader('Content-Type', 'text/csv')
+        res.setHeader('Content-Disposition', 'attachment; filename=inventory.csv')
+        res.status(200).send(csv)
+    } catch (e) {
+        res.status(500).send({ status: "error", msg: "Export failed", error: e.message })
     }
 })
 

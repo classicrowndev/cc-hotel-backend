@@ -146,10 +146,17 @@ router.post("/update", verifyToken, uploader.any(), async (req, res) => {
 
 // View all staff (filtered by RBAC with Pagination)
 router.post("/all", verifyToken, async (req, res) => {
-    const { page = 1, limit = 20 } = req.body
+    const { page = 1, limit = 20, startDate, endDate } = req.body
     try {
         const query = req.user.role === 'Owner' ? { role: { $in: ['Admin', 'Staff'] } } : { role: 'Staff' }
         query.is_deleted = false
+
+        // Date Filtering
+        if (startDate || endDate) {
+            query.timestamp = {};
+            if (startDate) query.timestamp.$gte = new Date(startDate).getTime();
+            if (endDate) query.timestamp.$lte = new Date(endDate).getTime();
+        }
 
         const count = await Staff.countDocuments(query)
         const staff = await Staff.find(query)
@@ -216,7 +223,7 @@ router.post("/delete", verifyToken, async (req, res) => {
 
 // Search staff (with Pagination)
 router.post("/search", verifyToken, async (req, res) => {
-    const { query, page = 1, limit = 20 } = req.body
+    const { query, page = 1, limit = 20, startDate, endDate } = req.body
     if (!query) return res.status(400).send({ status: 'error', msg: 'Search query is required' })
 
     try {
@@ -233,6 +240,13 @@ router.post("/search", verifyToken, async (req, res) => {
                 { primary_role: searchRegex }
             ],
             is_deleted: false
+        }
+
+        // Date Filtering
+        if (startDate || endDate) {
+            baseQuery.timestamp = {};
+            if (startDate) baseQuery.timestamp.$gte = new Date(startDate).getTime();
+            if (endDate) baseQuery.timestamp.$lte = new Date(endDate).getTime();
         }
 
         const count = await Staff.countDocuments(baseQuery)

@@ -63,6 +63,10 @@ router.post('/create', verifyToken, async (req, res) => {
         room.availability = "reserved"
         await room.save()
 
+        // Update Guest last booking date
+        guest.last_booking_date = Date.now()
+        await guest.save()
+
         // Send booking confirmation email to the Guest
         await sendGuestBookingMail(
             guest.email,

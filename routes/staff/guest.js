@@ -5,6 +5,7 @@ const dotenv = require("dotenv");
 dotenv.config()
 
 const Guest = require('../../models/guest')
+const Booking = require('../../models/booking')
 const verifyToken = require('../../middleware/verifyToken')
 
 
@@ -28,9 +29,20 @@ router.post("/stats", verifyToken, async (req, res) => {
         const totalGuests = await Guest.countDocuments({ is_deleted: false })
         const activeGuests = await Guest.countDocuments({ status: "Active", is_deleted: false })
         const suspendedGuests = await Guest.countDocuments({ status: "Suspended", is_deleted: false })
-
-        // Former/Deactivated
         const formerGuests = await Guest.countDocuments({ status: "Deactivated", is_deleted: false })
+
+        // Online Sign-ups: Guests who have set a password (registered online)
+        const onlineSignUps = await Guest.countDocuments({ password: { $exists: true, $ne: "" }, is_deleted: false })
+
+        // Retainment Rate Calculation
+        const bookingsByGuest = await Booking.aggregate([
+            { $group: { _id: "$guest", count: { $sum: 1 } } }
+        ])
+        const repeatGuests = bookingsByGuest.filter(g => g.count > 1).length
+        const totalGuestsWithBookings = bookingsByGuest.length
+        const retainmentRate = totalGuestsWithBookings > 0
+            ? Math.round((repeatGuests / totalGuestsWithBookings) * 100)
+            : 0
 
         res.status(200).send({
             status: "ok",
@@ -38,9 +50,10 @@ router.post("/stats", verifyToken, async (req, res) => {
             stats: {
                 total: totalGuests,
                 active: activeGuests,
-                former: formerGuests,
+                former: formerGuests, // Used for Deactivated count if needed, or just general stats
+                online_signups: onlineSignUps,
                 suspended: suspendedGuests,
-                repeatRate: "60%" // Placeholder for now as per UI
+                retainmentRate: `${retainmentRate}%`
             }
         })
     } catch (e) {
@@ -115,9 +128,17 @@ router.post("/all", verifyToken, async (req, res) => {
         return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
-    const { page = 1, limit = 20 } = req.body
+    const { page = 1, limit = 20, startDate, endDate } = req.body
     try {
-        const query = { is_deleted: false }
+        let query = { is_deleted: false }
+
+        // Date Filtering
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) query.createdAt.$gte = new Date(startDate);
+            if (endDate) query.createdAt.$lte = new Date(endDate);
+        }
+
         const count = await Guest.countDocuments(query)
         const guests = await Guest.find(query)
             .sort({ timestamp: -1 })
@@ -164,7 +185,7 @@ router.post('/view', verifyToken, async (req, res) => {
 
 // Search for guests (with Pagination)
 router.post("/search", verifyToken, async (req, res) => {
-    const { query, page = 1, limit = 20 } = req.body
+    const { query, page = 1, limit = 20, startDate, endDate } = req.body
 
     if (!query) {
         return res.status(400).send({ status: 'error', msg: 'Search query is required' })
@@ -176,13 +197,20 @@ router.post("/search", verifyToken, async (req, res) => {
 
     try {
         const searchRegex = { $regex: query, $options: "i" }
-        const baseQuery = {
+        let baseQuery = {
             $or: [
                 { fullname: searchRegex },
                 { email: searchRegex },
                 { phone_no: searchRegex }
             ],
             is_deleted: false
+        }
+
+        // Date Filtering
+        if (startDate || endDate) {
+            baseQuery.createdAt = {};
+            if (startDate) baseQuery.createdAt.$gte = new Date(startDate);
+            if (endDate) baseQuery.createdAt.$lte = new Date(endDate);
         }
 
         const count = await Guest.countDocuments(baseQuery)

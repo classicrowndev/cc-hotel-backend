@@ -33,10 +33,19 @@ router.post("/all", verifyToken, async (req, res) => {
         return res.status(403).send({ status: 'error', msg: 'Access denied.' })
     }
 
-    const { page = 1, limit = 20 } = req.body
+    const { page = 1, limit = 20, startDate, endDate } = req.body
     try {
-        const count = await Supplier.countDocuments()
-        const suppliers = await Supplier.find()
+        const query = {}
+
+        // Date Filtering
+        if (startDate || endDate) {
+            query.createdAt = {}
+            if (startDate) query.createdAt.$gte = new Date(startDate)
+            if (endDate) query.createdAt.$lte = new Date(endDate)
+        }
+
+        const count = await Supplier.countDocuments(query)
+        const suppliers = await Supplier.find(query)
             .sort({ timestamp: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit)
@@ -61,7 +70,7 @@ router.post("/add", verifyToken, async (req, res) => {
         return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add suppliers.' })
     }
 
-    const { name, phone_no, email, office_address, category } = req.body
+    const { name, phone_no, email, office_address, country, category } = req.body
     if (!name || !phone_no) {
         return res.status(400).send({ status: 'error', msg: 'Name and phone number are required' })
     }
@@ -72,6 +81,7 @@ router.post("/add", verifyToken, async (req, res) => {
             phone_no,
             email,
             office_address,
+            country,
             category,
             timestamp: Date.now()
         })
@@ -88,7 +98,7 @@ router.post("/update", verifyToken, async (req, res) => {
         return res.status(403).send({ status: 'error', msg: 'Access denied.' })
     }
 
-    const { id, name, phone_no, email, office_address, category, status, last_supply, total_supply } = req.body
+    const { id, name, phone_no, email, office_address, country, category, status, last_supply, total_supply } = req.body
     if (!id) return res.status(400).send({ status: 'error', msg: 'Supplier ID is required' })
 
     try {
@@ -98,6 +108,7 @@ router.post("/update", verifyToken, async (req, res) => {
         supplier.name = name || supplier.name
         supplier.phone_no = phone_no || supplier.phone_no
         supplier.email = email || supplier.email
+        supplier.country = country || supplier.country
         supplier.office_address = office_address || supplier.office_address
         supplier.category = category || supplier.category
         supplier.status = status || supplier.status
@@ -132,7 +143,7 @@ router.post("/delete", verifyToken, async (req, res) => {
 
 // Search supplier (with Pagination)
 router.post("/search", verifyToken, async (req, res) => {
-    const { query, page = 1, limit = 20 } = req.body
+    const { query, page = 1, limit = 20, startDate, endDate } = req.body
     if (!query) return res.status(400).send({ status: 'error', msg: 'Search query is required' })
 
     if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'])) {
@@ -148,6 +159,13 @@ router.post("/search", verifyToken, async (req, res) => {
                 { phone_no: searchRegex },
                 { category: searchRegex }
             ]
+        }
+
+        // Date Filtering
+        if (startDate || endDate) {
+            baseQuery.createdAt = {}
+            if (startDate) baseQuery.createdAt.$gte = new Date(startDate)
+            if (endDate) baseQuery.createdAt.$lte = new Date(endDate)
         }
 
         const count = await Supplier.countDocuments(baseQuery)
@@ -178,9 +196,10 @@ router.get("/export", verifyToken, async (req, res) => {
 
     try {
         const suppliers = await Supplier.find().lean()
-        let csv = "Name,Phone,Email,Address,Category,Last Supply,Total Supply,Status\n"
+        let csv = "Name,Phone,Email,Address,Country,Category,Last Supply,Total Supply,Updated,Status\n"
         suppliers.forEach(s => {
-            csv += `${s.name},${s.phone_no},${s.email},"${s.office_address}",${s.category},${s.last_supply ? new Date(s.last_supply).toLocaleDateString() : 'N/A'},${s.total_supply},${s.status}\n`
+            const lastUpdate = s.updatedAt ? new Date(s.updatedAt).toLocaleDateString() : 'N/A'
+            csv += `${s.name},${s.phone_no},${s.email},"${s.office_address}",${s.country || 'N/A'},${s.category},${s.last_supply ? new Date(s.last_supply).toLocaleDateString() : 'N/A'},${s.total_supply},${lastUpdate},${s.status}\n`
         })
 
         res.setHeader('Content-Type', 'text/csv')

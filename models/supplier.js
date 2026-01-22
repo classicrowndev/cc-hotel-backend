@@ -6,6 +6,7 @@ const supplierSchema = new Schema({
     phone_no: { type: String, required: true },
     email: { type: String },
     office_address: { type: String },
+    country: { type: String, default: 'Nigeria' },
     category: { type: String }, // e.g., Food, Laundry, Maintenance
     last_supply: { type: Date, default: null },
     total_supply: { type: Number, default: 0 },

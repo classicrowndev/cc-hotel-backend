@@ -28,6 +28,7 @@ const staffSchema = new mongoose.Schema({
         default: null
     }, //Reason provided why this staff account was deleted
     timestamp: Number,
+    updatedAt: { type: Date, default: Date.now }
 }, { collection: 'staffs' })
 
 const model = mongoose.model('Staff', staffSchema)

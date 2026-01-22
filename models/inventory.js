@@ -12,6 +12,8 @@ const inventorySchema = new mongoose.Schema({
     description: { type: String, default: '' },
     unit_of_measurement: { type: String, default: 'units' },
     stock: { type: Number, default: 0 },
+    damaged_stock: { type: Number, default: 0 },
+    supplier: { type: String, default: '' },
     price: { type: Number, default: 0 },
     image: {
         img_id: { type: String, default: '' },
