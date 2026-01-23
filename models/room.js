@@ -20,6 +20,11 @@ const roomSchema = new mongoose.Schema({
         enum: ["Available", "Checked-In", "Booked", "Under Maintenance"],
         default: "Available"
     },
+    cleaning_status: {
+        type: String,
+        enum: ["Clean", "Cleaning", "Untidy"],
+        default: "Clean"
+    },
     amenities: {
         type: [String],
         enum: ["5G Wi-Fi", "Flat-Screen TV", "Water Dispenser",
@@ -32,8 +37,10 @@ const roomSchema = new mongoose.Schema({
     description: { type: String },
     checkInDate: Date,
     checkOutDate: Date,
-    rating: {type: Number, default: 0},
-    timestamp: Number
+    rating: { type: Number, default: 0 },
+    timestamp: Number,
+    current_guest: { type: mongoose.Schema.Types.ObjectId, ref: "Guest" },
+    current_booking: { type: mongoose.Schema.Types.ObjectId, ref: "Booking" }
 }, { collection: 'rooms' })
 
 const model = mongoose.model('Room', roomSchema)

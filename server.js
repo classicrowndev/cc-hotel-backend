@@ -74,6 +74,7 @@ app.use('/staff_hall', require('./routes/staff/hall'))
 app.use('/staff_contact', require('./routes/staff/contact'))
 app.use('/staff_faq', require('./routes/staff/faq'))
 app.use('/staff_testimonial', require('./routes/staff/testimonial'))
+app.use('/staff_task', require('./routes/staff/task'))
 
 const port = process.env.PORT || 1000
 app.listen(port, () => {

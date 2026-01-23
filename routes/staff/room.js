@@ -26,7 +26,7 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], requiredTas
 // Add a new room (Only Owner/Admin)
 router.post("/add", verifyToken, uploader.any(), async (req, res) => {
     try {
-        const { name, category, type, price, capacity, description, amenities, availability } = req.body
+        const { name, category, type, price, capacity, description, amenities, availability, cleaning_status } = req.body
 
         if (!checkRole(req.user, ['Owner', 'Admin'], 'room')) {
             return res.status(403).send({ status: 'error', msg: 'Access denied. Only Owner/Admin can add rooms.' })
@@ -55,12 +55,16 @@ router.post("/add", verifyToken, uploader.any(), async (req, res) => {
             price,
             capacity,
             description,
-            amenities,
+            amenities: amenities || [], // Default to empty array if not provided
             availability: availability || "Available",
+            cleaning_status: cleaning_status || "Clean",
             images: uploadedImages,
             createdAt: Date.now(),
             timestamp: Date.now()
         })
+
+        // Handle required number fields if missing
+        if (!newRoom.capacity) newRoom.capacity = 1; // Default capacity
 
         await newRoom.save()
         return res.status(200).send({ status: "ok", msg: "success", file: uploadedImages, newRoom })
@@ -77,7 +81,7 @@ router.post("/add", verifyToken, uploader.any(), async (req, res) => {
 // Update room details (Only Owner/Admin)
 router.post("/update", verifyToken, uploader.any(), async (req, res) => {
     try {
-        const { id, name, category, type, price, capacity, description, amenities, availability } = req.body
+        const { id, name, category, type, price, capacity, description, amenities, availability, cleaning_status } = req.body
         if (!id) {
             return res.status(400).send({ status: "error", msg: "Room ID is required" })
         }
@@ -126,6 +130,7 @@ router.post("/update", verifyToken, uploader.any(), async (req, res) => {
         room.description = description || room.description
         room.amenities = amenities || room.amenities
         room.availability = availability || room.availability
+        room.cleaning_status = cleaning_status || room.cleaning_status
         room.timestamp = Date.now()
 
         await room.save()
@@ -148,20 +153,27 @@ router.post("/update", verifyToken, uploader.any(), async (req, res) => {
 
 // Update room status (Owner/Admin or Assigned Staff)
 router.post('/update_status', verifyToken, async (req, res) => {
-    const { id, availability } = req.body
-    if (!id || !availability) {
-        return res.status(400).send({ status: 'error', msg: 'Room ID and availability are required' })
+    const { id, availability, cleaning_status } = req.body
+    if (!id || (!availability && !cleaning_status)) {
+        return res.status(400).send({ status: 'error', msg: 'Room ID and at least one status (availability or cleaning) are required' })
     }
 
-    if (!['Available', 'Booked', 'Checked-In', 'Under Maintenance'].includes(availability))
-        return res.status(400).send({ status: 'error', msg: 'Invalid available status' })
+    if (availability && !['Available', 'Booked', 'Checked-In', 'Under Maintenance'].includes(availability))
+        return res.status(400).send({ status: 'error', msg: 'Invalid availability status' })
+
+    if (cleaning_status && !['Clean', 'Cleaning', 'Untidy'].includes(cleaning_status))
+        return res.status(400).send({ status: 'error', msg: 'Invalid cleaning status' })
 
     if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'room')) {
         return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
     }
 
     try {
-        const updated = await Room.findByIdAndUpdate(id, { availability, timestamp: Date.now() }, { new: true })
+        const updateData = { timestamp: Date.now() }
+        if (availability) updateData.availability = availability
+        if (cleaning_status) updateData.cleaning_status = cleaning_status
+
+        const updated = await Room.findByIdAndUpdate(id, updateData, { new: true })
         if (!updated) {
             return res.status(404).send({ status: 'error', msg: 'Room not found' })
         }
@@ -188,7 +200,7 @@ router.post("/all", verifyToken, async (req, res) => {
             return res.status(403).send({ status: "error", msg: "Access denied. Not assigned to room operations." })
         }
 
-        const rooms = await Room.find().sort({ createdAt: -1 })
+        const rooms = await Room.find().populate('current_guest', 'fullname').sort({ createdAt: -1 })
         if (!rooms.length) {
             return res.status(200).send({ status: "ok", msg: "No rooms found" })
         }
@@ -220,6 +232,8 @@ router.post("/view", verifyToken, async (req, res) => {
         }
 
         const room = await Room.findById(id)
+            .populate('current_guest', 'fullname email phone')
+            .populate('current_booking', 'booking_id checkInDate checkOutDate')
         if (!room) {
             return res.status(404).send({ status: "error", msg: "Room not found" })
         }
@@ -330,14 +344,14 @@ router.post("/stats", verifyToken, async (req, res) => {
         return res.status(200).send({
             status: "ok",
             msg: "success",
-            stats: {
-                total,
-                available,
-                booked,
-                checkedIn,
-                maintenance,
-                occupied: booked + checkedIn // Aggregate "occupied" usually means not available
-            }
+            available,
+            booked,
+            checkedIn,
+            maintenance,
+            occupied: booked + checkedIn,
+            totalClean: await Room.countDocuments({ cleaning_status: 'Clean' }),
+            totalCleaning: await Room.countDocuments({ cleaning_status: 'Cleaning' }),
+            totalUntidy: await Room.countDocuments({ cleaning_status: 'Untidy' })
         })
     } catch (e) {
         if (e.name === "JsonWebTokenError") {
