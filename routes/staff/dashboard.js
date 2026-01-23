@@ -9,17 +9,9 @@ const Guest = require('../../models/guest')
 const ServiceRequest = require('../../models/serviceRequest')
 const Order = require('../../models/order')
 const Event = require('../../models/event')
-const Booking = require('../../models/booking')
+const Task = require('../../models/task')
 
-// Role checker
-const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], requiredTask = null) => {
-    if (!allowedRoles.includes(user.role))
-        return false
-    if (user.role === 'Staff' && requiredTask) {
-        if (!Array.isArray(user.task) || !user.task.includes(requiredTask)) return false
-    }
-    return true
-}
+// ... (imports remain)
 
 // DASHBOARD + STATISTICS + REVENUE OVERVIEW
 router.post('/overview', verifyToken, async (req, res) => {
@@ -40,19 +32,11 @@ router.post('/overview', verifyToken, async (req, res) => {
 
 
         // 1. OCCUPANCY OVERVIEW
-        // Reservations: Total bookings made (or active bookings?) - UI says "170". Let's count active bookings or total in window.
-        // Assuming "Reservations" means total confirmed bookings.
         const totalReservations = await Booking.countDocuments()
-
-        // Vacant: Available Rooms
         const vacantRooms = await Room.countDocuments({ availability: 'Available' })
-
-        // Check-in: Bookings with checkInDate === Today
         const todayCheckIns = await Booking.countDocuments({
             checkInDate: { $gte: today, $lt: tomorrow }
         })
-
-        // Check-out: Bookings with checkOutDate === Today
         const todayCheckOuts = await Booking.countDocuments({
             checkOutDate: { $gte: today, $lt: tomorrow }
         })
@@ -63,14 +47,14 @@ router.post('/overview', verifyToken, async (req, res) => {
             .sort({ timestamp: -1 })
             .limit(5)
             .populate('guest', 'fullname email')
-            .populate('room', 'name')
+            .populate('rooms.room', 'name')
             .lean()
 
         const formattedBookings = recentBookings.map(b => ({
-            id: b._id, // Format as #ID handled by frontend or here
+            id: b.booking_id || b._id,
             guest: b.guest ? b.guest.fullname : 'Unknown',
-            room: b.room ? b.room.name : b.room_no || 'N/A',
-            type: b.room_type || 'N/A',
+            room: b.rooms && b.rooms.length > 0 ? b.rooms[0].room_no : 'N/A', // Showing first room
+            type: b.rooms && b.rooms.length > 0 ? b.rooms[0].room_type : 'N/A',
             checkIn: b.checkInDate,
             checkOut: b.checkOutDate,
             status: b.status
@@ -79,17 +63,11 @@ router.post('/overview', verifyToken, async (req, res) => {
 
         // 3. CHARTS DATA
 
-        // A. RESERVATIONS (Bar Chart - This Week: Booked, Checked-out, Cancelled)
-        // We will fetch last 7 days stats
+        // A. RESERVATIONS (Bar Chart - This Week)
         const reservationsChart = await Booking.aggregate([
             {
                 $match: {
                     timestamp: { $gte: startOfWeek.getTime() }
-                    // Using timestamp for "When was it made" or checkInDate? 
-                    // Usually Dashboard charts show activity over time. Let's use checkInDate for "Booked/Active"?
-                    // Or simply timestamp of creation for "New Reservations". 
-                    // UI shows "Booked", "Checked-out", "Cancelled". This implies current status distribution over days.
-                    // Let's group by Status and Date.
                 }
             },
             {
@@ -105,86 +83,64 @@ router.post('/overview', verifyToken, async (req, res) => {
 
 
         // B. PLATFORM (Donut: Walk-in vs Online)
-        // Since 'platform' field is missing, we infer/mock.
-        // Logic: If guest has password -> Online. If not (or created by admin) -> Walk-in.
-        // This requires looking up guests. For efficiency, we'll do query.
-        // NOTE: This is an APPROXIMATION.
-        const bookingsWithGuest = await Booking.find().populate('guest', 'password').select('guest')
-        let platformOnline = 0
-        let platformWalkIn = 0
-
-        bookingsWithGuest.forEach(b => {
-            if (b.guest && b.guest.password) platformOnline++
-            else platformWalkIn++
-        })
+        const onlineCount = await Booking.countDocuments({ booking_type: 'Online' })
+        const directCount = await Booking.countDocuments({ booking_type: 'Direct' }) // Walk-in usually = Direct
 
 
-        // C. CLEAN-UPS (Donut: Clean, Cleaning, Laundry)
-        // Clean: Rooms Available
-        // Cleaning: Rooms Under Maintenance or ServiceRequest 'Room' In Progress
-        // Laundry: ServiceRequest 'Laundry'
+        // C. CLEAN-UPS 
+        // Logic: 
+        // 'Clean' = Available Rooms
+        // 'Cleaning' = Rooms with availability 'Maintenance' (or if we had a dedicated Cleaning status)
+        // 'Untidy' = ServiceRequests for Room Cleaning that are pending? Or maybe 'Booked' rooms are considered needing cleaning eventually?
+        // Let's stick to Room statuses + Service Requests for now.
 
-        const cleanCount = vacantRooms // "Clean" usually implies Ready to Sell
-
-        const cleaningRequests = await ServiceRequest.countDocuments({
-            status: 'In Progress', // or Pending
-            // We need to check if service type is Room. 
-            // Since ServiceRequest links to Service, we need aggregation lookup or assume based on something else.
-            // Let's do aggregation.
-        })
-        // Better approach:
-        const cleaningAgg = await ServiceRequest.aggregate([
+        const cleanCount = vacantRooms // Available
+        const maintenanceCount = await Room.countDocuments({ availability: 'Under Maintenance' })
+        // For 'Untidy', let's sum up pending 'Room' service requests
+        const untidyRequests = await ServiceRequest.aggregate([
             { $lookup: { from: 'services', localField: 'service', foreignField: '_id', as: 'serviceInfo' } },
             { $unwind: '$serviceInfo' },
-            {
-                $group: {
-                    _id: '$serviceInfo.service_type',
-                    count: { $sum: 1 }
-                }
-            }
+            { $match: { 'serviceInfo.service_type': 'Room', status: { $in: ['Pending', 'In Progress'] } } },
+            { $count: "count" }
+        ])
+        const untidyCount = untidyRequests.length > 0 ? untidyRequests[0].count : 0
+
+
+        // D. REVENUE (Line Chart - Weekly - ORDERS + BOOKINGS)
+        // 1. Orders Revenue
+        const ordersRevenue = await Order.aggregate([
+            { $match: { order_date: { $gte: startOfWeek } } },
+            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$order_date" } }, total: { $sum: "$amount" } } }
         ])
 
-        // Extract counts from aggregation
-        // Assuming service_type values are 'Room', 'Laundry' etc.
-        const laundryCount = cleaningAgg.find(x => x._id === 'Laundry')?.count || 0
-        // For 'Cleaning', we take 'Room' services + 'Under Maintenance' rooms?
-        const roomServiceCount = cleaningAgg.find(x => x._id === 'Room')?.count || 0
-        const maintenanceRooms = await Room.countDocuments({ availability: 'Under Maintenance' })
-
-        const cleaningTotal = roomServiceCount + maintenanceRooms
-
-
-        // D. REVENUE (Line Chart - Weekly)
-        // Aggregating Orders + potentially Bookings
-        const dailyRevenue = await Order.aggregate([
-            {
-                $match: {
-                    order_date: { $gte: startOfWeek }
-                }
-            },
-            {
-                $group: {
-                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$order_date" } },
-                    total: { $sum: "$amount" }
-                }
-            },
-            { $sort: { _id: 1 } }
+        // 2. Bookings Revenue
+        const bookingsRevenue = await Booking.aggregate([
+            { $match: { timestamp: { $gte: startOfWeek.getTime() } } }, // Using creation time for revenue
+            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: { $toDate: "$timestamp" } } }, total: { $sum: "$amount" } } }
         ])
 
+        // Merge Revenue
+        const revenueMap = {}
+        ordersRevenue.forEach(r => revenueMap[r._id] = (revenueMap[r._id] || 0) + r.total)
+        bookingsRevenue.forEach(r => revenueMap[r._id] = (revenueMap[r._id] || 0) + r.total)
 
-        // 4. TASKS (Recent 3, assigned to someone? - Mock Assignee name for now as it's missing)
-        const recentTasks = await ServiceRequest.find()
-            .sort({ request_date: -1 })
+        const dailyRevenue = Object.keys(revenueMap).map(date => ({ _id: date, total: revenueMap[date] })).sort((a, b) => a._id.localeCompare(b._id))
+
+
+        // 4. TASKS (Recent 3 from Task Model)
+        const recentTasks = await Task.find()
+            .sort({ timestamp: -1 })
             .limit(3)
-            .populate('service', 'name service_type')
+            .populate('assignee', 'fullname profile_img_url')
             .lean()
 
         const formattedTasks = recentTasks.map(t => ({
             id: t._id,
-            description: `Please ${t.service.name}`, // e.g., "Please clean up room..."
-            assignee: "Unassigned", // Placeholder until Assignee added
+            description: t.description || `Task: ${t.name}`,
+            assignee: t.assignee ? t.assignee.fullname : "Unassigned",
+            img: t.assignee ? t.assignee.profile_img_url : null,
             status: t.status,
-            date: t.request_date
+            date: t.start_date || t.date_added
         }))
 
 
@@ -200,13 +156,13 @@ router.post('/overview', verifyToken, async (req, res) => {
             charts: {
                 reservations: reservationsChart,
                 platform: {
-                    online: platformOnline,
-                    walkIn: platformWalkIn
+                    online: onlineCount,
+                    walkIn: directCount
                 },
                 cleanUps: {
                     clean: cleanCount,
-                    cleaning: cleaningTotal,
-                    laundry: laundryCount
+                    cleaning: maintenanceCount, // Maintenance
+                    untidy: untidyCount // Active Room Service Requests
                 },
                 revenue: dailyRevenue
             },
