@@ -56,16 +56,26 @@ router.post('/add', verifyToken, async (req, res) => {
 
             if (foundDish.quantity > 0) {
                 foundDish.quantity -= quantity
+                foundDish.last_ordered = Date.now()
                 await foundDish.save()
             }
         }
 
+        // Generate Short Order ID (4 digits)
+        const order_id = Math.floor(1000 + Math.random() * 9000).toString()
+
+        // Calculate VAT (7.5%)
+        const vat = totalAmount * 0.075
+        totalAmount += vat
+
         const newOrder = new Order({
+            order_id,
             guest,
             email,
             dishes: orderDishes,
             room,
             amount: totalAmount,
+            vat,
             payment_method: payment_method || "Pending",
             order_date: new Date(),
             timestamp: Date.now()
@@ -89,7 +99,7 @@ router.post('/all', verifyToken, async (req, res) => {
     }
 
     try {
-        const orders = await Order.find().populate('guest', 'fullname email').sort({ order_date: -1 })
+        const orders = await Order.find().populate('guest', 'fullname email type').sort({ order_date: -1 })
         if (!orders.length) return res.status(200).send({ status: 'ok', msg: 'No orders found' })
 
         return res.status(200).send({ status: 'ok', msg: 'success', count: orders.length, orders })
@@ -113,7 +123,7 @@ router.post('/view', verifyToken, async (req, res) => {
     }
 
     try {
-        const order = await Order.findById(id).populate('guest', 'fullname email')
+        const order = await Order.findById(id).populate('guest', 'fullname email type')
         if (!order) return res.status(404).send({ status: 'error', msg: 'Order not found' })
 
         return res.status(200).send({ status: 'ok', order })
@@ -221,6 +231,12 @@ router.post('/stats', verifyToken, async (req, res) => {
         const active = await Order.countDocuments({ status: { $in: ["Order Placed", "Preparing"] } })
         const delivered = await Order.countDocuments({ status: "Order Delivered" })
 
+        // Granular stats
+        const preparing = await Order.countDocuments({ status: "Preparing" })
+        const served = await Order.countDocuments({ status: "Order Served" })
+        const onlineOrders = await Order.countDocuments({ payment_method: { $ne: 'Cash' } })
+        const directOrders = await Order.countDocuments({ payment_method: 'Cash' })
+
         const revenueAgg = await Order.aggregate([
             { $match: { status: { $ne: "Order Cancelled" } } },
             { $group: { _id: null, total: { $sum: "$amount" } } }
@@ -230,7 +246,10 @@ router.post('/stats', verifyToken, async (req, res) => {
         return res.status(200).send({
             status: 'ok',
             msg: 'success',
-            stats: { total, active, delivered, totalRevenue }
+            stats: {
+                total, active, delivered, totalRevenue,
+                preparing, served, onlineOrders, directOrders
+            }
         })
     } catch (e) {
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
@@ -248,17 +267,68 @@ router.post('/search', verifyToken, async (req, res) => {
     }
 
     try {
-        const orders = await Order.find({
+        let query = {
             $or: [
                 { room: { $regex: keyword, $options: 'i' } },
                 { email: { $regex: keyword, $options: 'i' } },
-                { status: { $regex: keyword, $options: 'i' } }
+                { status: { $regex: keyword, $options: 'i' } },
+                { order_id: { $regex: keyword, $options: 'i' } } // Match short ID
             ]
-        }).populate('guest', 'fullname email').sort({ order_date: -1 })
+        }
+
+        // Try matching by MongoDB ID if keyword looks like an ID
+        if (keyword.match(/^[0-9a-fA-F]{24}$/)) {
+            query.$or.push({ _id: keyword })
+        }
+
+        // Search in Guest Name
+        const guests = await require('../../models/guest').find({ fullname: { $regex: keyword, $options: 'i' } }).select('_id')
+        if (guests.length > 0) {
+            const guestIds = guests.map(g => g._id)
+            query.$or.push({ guest: { $in: guestIds } })
+        }
+
+        const orders = await Order.find(query).populate('guest', 'fullname email type').sort({ order_date: -1 })
 
         return res.status(200).send({ status: 'ok', count: orders.length, orders })
     } catch (e) {
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
+    }
+})
+
+
+// Export orders to CSV (Owner/Admin or assigned staff)
+router.post('/export_orders', verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'order')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+    try {
+        const orders = await Order.find().populate('guest', 'fullname email type').sort({ order_date: -1 }).lean()
+        const fields = ['Order ID', 'Guest Name', 'Type', 'Room/Table', 'Description', 'Amount', 'Status', 'Date']
+        let csv = fields.join(',') + '\n'
+
+        orders.forEach(o => {
+            const guestName = o.guest ? o.guest.fullname : "Unknown"
+            const guestType = o.guest && o.guest.type ? o.guest.type : "Regular"
+            const description = o.dishes.map(d => `${d.quantity}x ${d.name}`).join('; ')
+            const row = [
+                `#${o.order_id || o._id.toString().slice(-4)}`, // Use short ID or fallback
+                `"${guestName}"`,
+                guestType,
+                `"${o.room}"`,
+                `"${description}"`,
+                o.amount,
+                o.status,
+                o.order_date ? new Date(o.order_date).toISOString().split('T')[0] : ""
+            ]
+            csv += row.join(',') + '\n'
+        })
+
+        res.header('Content-Type', 'text/csv')
+        res.attachment('restaurant_orders.csv')
+        return res.send(csv)
+    } catch (e) {
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 

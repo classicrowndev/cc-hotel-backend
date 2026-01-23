@@ -8,6 +8,7 @@ const guestSchema = new Schema({
     password: String,
     gender: String,
     date_of_birth: String,
+    type: { type: String, enum: ["Regular", "VIP"], default: "Regular" },
     bookings: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking' },
     favoriteServices: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
     profile_img_id: { type: String, default: '' },

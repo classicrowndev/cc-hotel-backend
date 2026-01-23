@@ -13,6 +13,8 @@ const dishSchema = new mongoose.Schema({
     isReady: { type: Boolean, default: false },
     quantity: { type: Number, default: 0 },
     amount_per_portion: { type: Number, default: 0 },
+    vip_price: { type: Number, default: 0 },
+    last_updated: { type: Number, default: Date.now },
     images: [
         { img_id: String, img_url: String }
     ],

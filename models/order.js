@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema({
     id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+    order_id: { type: String }, // Short ID e.g. "3021"
     guest: { type: mongoose.Schema.Types.ObjectId, ref: "Guest", required: true },
     email: { type: String, required: true },
     dishes: [
@@ -17,6 +18,7 @@ const orderSchema = new mongoose.Schema({
     },
     room: String,
     amount: Number,
+    vat: { type: Number, default: 0 },
     payment_method: { type: String, enum: ["Cash", "Card", "Transfer", "Room Charge", "Pending"], default: "Pending" },
     order_date: { type: Date, default: Date.now },
     timestamp: Number

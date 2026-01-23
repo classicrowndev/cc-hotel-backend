@@ -26,7 +26,7 @@ const checkRole = (user, allowedRoles = ['Owner', 'Admin', 'Staff'], requiredTas
 // Add new dish (Owner/Admin only)
 router.post('/add', verifyToken, uploader.any(), async (req, res) => {
     try {
-        let { name, category, subCategory, amount_per_portion, isReady, quantity } = req.body
+        let { name, category, subCategory, amount_per_portion, vip_price, isReady, quantity } = req.body
 
         // Case-insensitivity handling for subCategory
         if (!subCategory) {
@@ -64,6 +64,7 @@ router.post('/add', verifyToken, uploader.any(), async (req, res) => {
             isReady: isReady === 'true' || isReady === true,
             quantity: quantity ?? 0,
             amount_per_portion,
+            vip_price: vip_price || 0,
             images: uploadedImages,
             date_added: Date.now(),
             timestamp: Date.now()
@@ -130,7 +131,7 @@ router.post('/view', verifyToken, async (req, res) => {
 // Update dish (Owner/Admin only)
 router.post('/update', verifyToken, uploader.any(), async (req, res) => {
     try {
-        const { id, name, category, subCategory, amount_per_portion, isReady, quantity } = req.body
+        const { id, name, category, subCategory, amount_per_portion, vip_price, isReady, quantity } = req.body
 
         if (!id) {
             return res.status(400).send({ status: 'error', msg: 'Dish ID is required' })
@@ -176,7 +177,9 @@ router.post('/update', verifyToken, uploader.any(), async (req, res) => {
         dish.category = category || dish.category
         dish.subCategory = subCategory || req.body.subcategory || req.body.SubCategory || dish.subCategory
         dish.amount_per_portion = amount_per_portion !== undefined ? amount_per_portion : dish.amount_per_portion
+        dish.vip_price = vip_price !== undefined ? vip_price : dish.vip_price
         dish.isReady = isReady !== undefined ? (isReady === 'true' || isReady === true) : dish.isReady
+        dish.last_updated = Date.now()
         dish.quantity = quantity !== undefined ? quantity : dish.quantity
         dish.timestamp = Date.now()
 
@@ -270,10 +273,20 @@ router.post('/overview', verifyToken, async (req, res) => {
         const unavailable = await Dish.countDocuments({ isReady: false })
         const outOfStock = await Dish.countDocuments({ quantity: 0 })
         const total_drinks = await Dish.countDocuments({ category: { $in: ['Bar & Drinks', 'Beverages'] } })
+        const total_food = total - total_drinks
+
+        // Category breakdown
+        const categoryStats = await Dish.aggregate([
+            { $group: { _id: "$category", count: { $sum: 1 } } }
+        ])
+        const category_breakdown = {}
+        categoryStats.forEach(stat => {
+            if (stat._id) category_breakdown[stat._id] = stat.count
+        })
 
         return res.status(200).send({
             status: 'ok', msg: 'success',
-            overview: { total, available, unavailable, outOfStock, total_drinks }
+            overview: { total, available, unavailable, outOfStock, total_drinks, total_food, category_breakdown }
         })
     } catch (e) {
         if (e.name === 'JsonWebTokenError') {
@@ -314,6 +327,41 @@ router.post('/search', verifyToken, async (req, res) => {
             return res.status(400).send({ status: 'error', msg: 'Invalid token', error: e.message })
         }
         return res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })
+    }
+})
+
+
+// Export dishes to CSV (Owner/Admin or assigned staff)
+router.post('/export_dishes', verifyToken, async (req, res) => {
+    if (!checkRole(req.user, ['Owner', 'Admin', 'Staff'], 'dish')) {
+        return res.status(403).send({ status: 'error', msg: 'Access denied or unauthorized role.' })
+    }
+    try {
+        const dishes = await Dish.find().sort({ date_added: -1 }).lean()
+        const fields = ['Name', 'Category', 'SubCategory', 'Price (Regular)', 'Price (VIP)', 'Quantity', 'Status', 'Last Ordered', 'Last Updated', 'Date Added']
+        let csv = fields.join(',') + '\n'
+
+        dishes.forEach(d => {
+            const row = [
+                `"${d.name}"`,
+                `"${d.category}"`,
+                `"${d.subCategory || ''}"`,
+                d.amount_per_portion,
+                d.vip_price || 0,
+                d.quantity,
+                d.isReady ? "Available" : "Unavailable",
+                d.last_ordered ? new Date(d.last_ordered).toISOString().split('T')[0] : "",
+                d.last_updated ? new Date(d.last_updated).toISOString().split('T')[0] : "",
+                d.date_added ? new Date(d.date_added).toISOString().split('T')[0] : ""
+            ]
+            csv += row.join(',') + '\n'
+        })
+
+        res.header('Content-Type', 'text/csv')
+        res.attachment('restaurant_dishes.csv')
+        return res.send(csv)
+    } catch (e) {
+        return res.status(500).send({ status: "error", msg: "Error occurred", error: e.message })
     }
 })
 
