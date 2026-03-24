@@ -4,7 +4,7 @@ const inventoryCategorySchema = new mongoose.Schema({
     name: { type: String, required: true },
     type: {
         type: String,
-        enum: ["room", "kitchen", "assets", "office"],
+        enum: ["room", "kitchen", "assets", "stationaries"],
         required: true
     },
     description: { type: String, default: '' },

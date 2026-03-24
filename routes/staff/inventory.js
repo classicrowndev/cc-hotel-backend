@@ -8,7 +8,7 @@ const uploader = require('../../utils/multer')
 
 // Get inventory statistics based on type
 router.post("/stats", verifyToken, async (req, res) => {
-    const { type } = req.body // room, kitchen, assets, office
+    const { type } = req.body // room, kitchen, assets, stationaries
     if (!type) return res.status(400).send({ status: "error", msg: "Inventory type is required" })
 
     try {
