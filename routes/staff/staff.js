@@ -6,6 +6,7 @@ const verifyToken = require('../../middleware/verifyToken')
 const cloudinary = require('../../utils/cloudinary')
 const uploader = require('../../utils/multer')
 const { sendStaffAccountMail } = require('../../utils/nodemailer')
+const crypto = require('crypto')
 
 /**
  * RBAC Helper
@@ -39,10 +40,10 @@ router.post("/stats", verifyToken, async (req, res) => {
 
 // Add new staff/admin
 router.post("/add", verifyToken, uploader.any(), async (req, res) => {
-    const { fullname, email, password, phone_no, role, primary_role, salary, gender, address, date_of_birth, task } = req.body
+    const { fullname, email, phone_no, role, primary_role, salary, gender, address, date_of_birth, task } = req.body
 
-    if (!fullname || !email || !password || !phone_no || !role) {
-        return res.status(400).send({ status: 'error', msg: 'Required fields: fullname, email, password, phone_no, role' })
+    if (!fullname || !email || !phone_no || !role) {
+        return res.status(400).send({ status: 'error', msg: 'Required fields: fullname, email, phone_no, role' })
     }
 
     if (!checkRBAC(req.user, role)) {
@@ -53,7 +54,10 @@ router.post("/add", verifyToken, uploader.any(), async (req, res) => {
         const existing = await Staff.findOne({ email })
         if (existing) return res.status(400).send({ status: 'error', msg: 'Staff with this email already exists' })
 
-        const hashedPassword = await bcrypt.hash(password, 10)
+        // Auto-generate secure temporary password (e.g. Xk29$LmP)
+        const tempPassword = crypto.randomBytes(4).toString('hex') + "!A1a"
+
+        const hashedPassword = await bcrypt.hash(tempPassword, 10)
         const staffData = {
             fullname,
             email,
@@ -66,7 +70,8 @@ router.post("/add", verifyToken, uploader.any(), async (req, res) => {
             address,
             date_of_birth,
             task: role === 'Staff' ? (task || 'none') : undefined,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            requiresPasswordReset: true
         }
 
         // Handle profile image upload
@@ -81,9 +86,14 @@ router.post("/add", verifyToken, uploader.any(), async (req, res) => {
         await staff.save()
 
         // Send confirmation mail
-        await sendStaffAccountMail(email, password, fullname, role, task)
+        await sendStaffAccountMail(email, tempPassword, fullname, role, task)
 
-        res.status(200).send({ status: 'ok', msg: 'Staff added successfully', staff })
+        res.status(200).send({ 
+            status: 'ok', 
+            msg: 'Staff added successfully. Temporary password sent to email.', 
+            staff,
+            tempPassword // Note: Usually returned during dev or specific flows, else rely on email
+        })
     } catch (e) {
         console.error(e)
         res.status(500).send({ status: 'error', msg: 'Error occurred', error: e.message })

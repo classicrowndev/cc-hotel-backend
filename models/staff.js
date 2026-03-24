@@ -27,6 +27,7 @@ const staffSchema = new mongoose.Schema({
         type: String,
         default: null
     }, //Reason provided why this staff account was deleted
+    requiresPasswordReset: { type: Boolean, default: false }, // Force password reset on next login
     timestamp: Number,
     updatedAt: { type: Date, default: Date.now }
 }, { collection: 'staffs' })
