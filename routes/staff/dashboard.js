@@ -17,7 +17,7 @@ const Task = require('../../models/task')
 router.post('/overview', verifyToken, async (req, res) => {
     try {
         // Restrict dashboard access to Owner & Admin (or specific staff if needed)
-        if (!checkRole(req.user, ['Owner', 'Admin'])) {
+        if (!['Owner', 'Admin'].includes(req.user.role)) {
             return res.status(403).send({ status: 'error', msg: 'Access denied.' })
         }
 
